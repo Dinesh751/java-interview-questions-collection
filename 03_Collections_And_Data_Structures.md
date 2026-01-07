@@ -49,146 +49,39 @@ java.util.Map<K,V> (separate hierarchy)
 **Code Example:**
 ```java
 import java.util.*;
-import java.util.concurrent.*;
 
-public class CollectionsFrameworkDemo {
-    
-    public static void main(String[] args) {
-        demonstrateCollectionHierarchy();
-        demonstrateMapHierarchy();
-        demonstrateCollectionOperations();
-    }
-    
-    public static void demonstrateCollectionHierarchy() {
-        System.out.println("=== Collection Interface Implementations ===");
-        
-        // List implementations - ordered, allow duplicates
-        List<String> arrayList = new ArrayList<>();
-        List<String> linkedList = new LinkedList<>();
-        List<String> vector = new Vector<>();
-        
-        // Set implementations - no duplicates
-        Set<String> hashSet = new HashSet<>();
-        Set<String> linkedHashSet = new LinkedHashSet<>();
-        Set<String> treeSet = new TreeSet<>();
-        
-        // Queue implementations - FIFO operations
-        Queue<String> arrayDeque = new ArrayDeque<>();
-        Queue<String> priorityQueue = new PriorityQueue<>();
-        Queue<String> linkedQueue = new LinkedList<>(); // LinkedList implements both List and Queue
-        
-        // Deque implementations - double-ended queue
-        Deque<String> deque = new ArrayDeque<>();
-        Deque<String> linkedDeque = new LinkedList<>();
-        
-        // Adding elements to demonstrate
-        Collections.addAll(arrayList, "Java", "Python", "Java", "C++");
-        Collections.addAll(hashSet, "Java", "Python", "Java", "C++"); // Duplicates removed
-        Collections.addAll(treeSet, "Java", "Python", "Java", "C++"); // Sorted, duplicates removed
-        
-        System.out.println("ArrayList (allows duplicates, maintains order): " + arrayList);
-        System.out.println("HashSet (no duplicates, no order guarantee): " + hashSet);
-        System.out.println("TreeSet (no duplicates, natural order): " + treeSet);
-    }
-    
-    public static void demonstrateMapHierarchy() {
-        System.out.println("\n=== Map Interface Implementations ===");
-        
-        // Map implementations - key-value pairs
-        Map<Integer, String> hashMap = new HashMap<>();
-        Map<Integer, String> linkedHashMap = new LinkedHashMap<>();
-        Map<Integer, String> treeMap = new TreeMap<>();
-        Map<Integer, String> hashtable = new Hashtable<>();
-        Map<Integer, String> concurrentHashMap = new ConcurrentHashMap<>();
-        
-        // Adding data
-        hashMap.put(3, "Java");
-        hashMap.put(1, "Python");
-        hashMap.put(2, "C++");
-        
-        linkedHashMap.put(3, "Java");
-        linkedHashMap.put(1, "Python");
-        linkedHashMap.put(2, "C++");
-        
-        treeMap.put(3, "Java");
-        treeMap.put(1, "Python");
-        treeMap.put(2, "C++");
-        
-        System.out.println("HashMap (no order guarantee): " + hashMap);
-        System.out.println("LinkedHashMap (insertion order): " + linkedHashMap);
-        System.out.println("TreeMap (natural key order): " + treeMap);
-    }
-    
-    public static void demonstrateCollectionOperations() {
-        System.out.println("\n=== Common Collection Operations ===");
-        
-        Collection<String> languages = new ArrayList<>();
-        
-        // Basic operations
-        languages.add("Java");
-        languages.add("Python");
-        languages.add("JavaScript");
-        
-        System.out.println("Size: " + languages.size());
-        System.out.println("Contains Java: " + languages.contains("Java"));
-        System.out.println("Is empty: " + languages.isEmpty());
-        
-        // Bulk operations
-        Collection<String> newLanguages = Arrays.asList("C++", "Go", "Rust");
-        languages.addAll(newLanguages);
-        System.out.println("After adding more: " + languages);
-        
-        // Iteration methods
-        System.out.println("\nIteration methods:");
-        
-        // 1. Enhanced for loop
-        System.out.print("Enhanced for: ");
-        for (String lang : languages) {
-            System.out.print(lang + " ");
-        }
-        
-        // 2. Iterator
+// List implementations - ordered, allow duplicates
+List<String> arrayList = new ArrayList<>();
+arrayList.addAll(Arrays.asList("Java", "Python", "Java", "C++"));
+System.out.println("ArrayList: " + arrayList); // [Java, Python, Java, C++]
+
+// Set implementations - no duplicates  
+Set<String> hashSet = new HashSet<>(Arrays.asList("Java", "Python", "Java", "C++"));
+System.out.println("HashSet: " + hashSet); // [Java, Python, C++] - no order
+
+Set<String> treeSet = new TreeSet<>(Arrays.asList("Java", "Python", "Java", "C++"));
+System.out.println("TreeSet: " + treeSet); // [C++, Java, Python] - sorted
+
+// Map implementations - key-value pairs
+Map<Integer, String> hashMap = new HashMap<>();
+hashMap.put(3, "Java");
+hashMap.put(1, "Python");
+hashMap.put(2, "C++");
+System.out.println("HashMap: " + hashMap); // No order guarantee
+
+Map<Integer, String> treeMap = new TreeMap<>(hashMap);
+System.out.println("TreeMap: " + treeMap); // {1=Python, 2=C++, 3=Java} - sorted by key
+
+// Queue operations
+Queue<String> queue = new LinkedList<>();
+queue.offer("First");
+queue.offer("Second");
+String element = queue.poll(); // Removes and returns "First"
         System.out.print("\nIterator: ");
         Iterator<String> iterator = languages.iterator();
         while (iterator.hasNext()) {
             System.out.print(iterator.next() + " ");
         }
-        
-        // 3. Stream API (Java 8+)
-        System.out.print("\nStream API: ");
-        languages.stream().forEach(lang -> System.out.print(lang + " "));
-        
-        System.out.println();
-    }
-}
-
-// Generic Collection utility class
-class CollectionUtils {
-    
-    // Generic method to print any collection
-    public static <T> void printCollection(String title, Collection<T> collection) {
-        System.out.println(title + ": " + collection);
-        System.out.println("Type: " + collection.getClass().getSimpleName());
-        System.out.println("Size: " + collection.size());
-        System.out.println("---");
-    }
-    
-    // Method to demonstrate type safety
-    public static void demonstrateTypeSafety() {
-        // Before generics (raw types - not recommended)
-        List rawList = new ArrayList();
-        rawList.add("String");
-        rawList.add(123); // No compile-time error, but potential runtime error
-        
-        // With generics (type safe)
-        List<String> typeSafeList = new ArrayList<>();
-        typeSafeList.add("String");
-        // typeSafeList.add(123); // Compile-time error - type safety!
-        
-        System.out.println("Raw list (unsafe): " + rawList);
-        System.out.println("Type-safe list: " + typeSafeList);
-    }
-}
 ```
 
 **Core Benefits:**
@@ -239,13 +132,28 @@ class CollectionUtils {
 ```java
 import java.util.*;
 
-public class ArrayListVsLinkedListDemo {
-    
-    public static void main(String[] args) {
-        performanceComparison();
-        memoryUsageDemo();
-        useCaseExamples();
-    }
+// ArrayList - Internal array structure
+List<String> arrayList = new ArrayList<>();
+arrayList.addAll(Arrays.asList("A", "B", "C"));
+
+// LinkedList - Node-based structure  
+List<String> linkedList = new LinkedList<>();
+linkedList.addAll(Arrays.asList("A", "B", "C"));
+
+// Performance examples
+String element = arrayList.get(1); // O(1) - direct array access
+linkedList.add(0, "New"); // O(1) - update head pointer
+arrayList.add(0, "New"); // O(n) - shift elements
+
+// LinkedList as Queue/Stack
+Queue<String> queue = new LinkedList<>();
+queue.offer("task");
+String task = queue.poll();
+
+Deque<String> stack = new LinkedList<>();
+stack.push("page");
+String page = stack.pop();
+```
     
     public static void performanceComparison() {
         System.out.println("=== Performance Comparison ===");
@@ -1333,15 +1241,100 @@ class CustomList<T> implements Iterable<T> {
 | **Modification** | Remove only | Remove, Replace, Add |
 | **Position Info** | No | Yes (indices) |
 
-**Fail-Fast vs Fail-Safe:**
+**Fail-Fast vs Fail-Safe: Detailed Explanation**
+
+**Fail-Fast Collections:**
+- **Definition**: Immediately throw `ConcurrentModificationException` when they detect that the collection has been modified during iteration
+- **Mechanism**: Use a `modCount` (modification count) field that is incremented every time the collection is structurally modified
+- **When it fails**: If `modCount` changes between iterator creation and iteration steps
+
+**Fail-Safe Collections:**
+- **Definition**: Allow safe iteration even when the collection is modified during iteration
+- **Mechanism**: Create a copy/snapshot of the collection or use sophisticated locking mechanisms
+- **When it's safe**: Iteration continues on the original snapshot, unaffected by modifications
+
+**Code Example:**
+```java
+import java.util.*;
+import java.util.concurrent.*;
+
+// Fail-Fast Example (ArrayList, HashMap)
+List<String> list = new ArrayList<>(Arrays.asList("A", "B", "C"));
+try {
+    for (String item : list) {
+        if (item.equals("B")) {
+            list.remove(item); // Throws ConcurrentModificationException
+        }
+    }
+} catch (ConcurrentModificationException e) {
+    System.out.println("Fail-fast caught!");
+}
+
+// Correct way with Iterator
+Iterator<String> iter = list.iterator();
+while (iter.hasNext()) {
+    if (iter.next().equals("B")) {
+        iter.remove(); // Safe removal
+    }
+}
+
+// Fail-Safe Example (CopyOnWriteArrayList, ConcurrentHashMap)
+List<String> safeList = new CopyOnWriteArrayList<>(Arrays.asList("A", "B", "C"));
+for (String item : safeList) {
+    if (item.equals("B")) {
+        safeList.remove(item); // No exception - works fine
+    }
+}
+```
+
+**Detailed Comparison:**
 
 | Aspect | Fail-Fast | Fail-Safe |
 |--------|-----------|-----------|
-| **Behavior** | Throws ConcurrentModificationException | Continues iteration on copy |
-| **Performance** | Faster | Slower |
-| **Memory** | Lower | Higher (creates copies) |
-| **Examples** | ArrayList, HashMap, HashSet | CopyOnWriteArrayList, ConcurrentHashMap |
-| **Use Case** | Single-threaded, detect bugs | Multi-threaded, concurrent access |
+| **Behavior** | Throws ConcurrentModificationException | Continues iteration on copy/snapshot |
+| **Detection Method** | modCount field comparison | No detection needed (uses copies) |
+| **Performance** | Faster (no copying overhead) | Slower (copying/synchronization overhead) |
+| **Memory Usage** | Lower (no additional copies) | Higher (creates copies/snapshots) |
+| **Thread Safety** | Not thread-safe | Thread-safe |
+| **Examples** | ArrayList, HashMap, HashSet, LinkedList | CopyOnWriteArrayList, ConcurrentHashMap |
+| **Best Use Case** | Single-threaded, catch programming errors early | Multi-threaded, concurrent modifications expected |
+| **Modification During Iteration** | ❌ Throws exception | ✅ Allowed and safe |
+
+**Real-World Scenarios:**
+
+**When to use Fail-Fast:**
+```java
+// 1. Single-threaded data processing - catch bugs early
+List<Order> orders = getOrdersFromDatabase();
+for (Order order : orders) {
+    if (order.isInvalid()) {
+        orders.remove(order); // BUG! Will throw exception - good for debugging
+    }
+}
+
+// 2. Development/Testing - helps identify concurrent modification bugs
+Map<String, User> userCache = new HashMap<>();
+// If multiple threads modify this without proper synchronization,
+// fail-fast behavior will help identify the problem quickly
+```
+
+**When to use Fail-Safe:**
+```java
+// 1. Event listeners - modifications during event processing
+List<EventListener> listeners = new CopyOnWriteArrayList<>();
+for (EventListener listener : listeners) {
+    listener.onEvent(event);
+    // Other threads can safely add/remove listeners during this loop
+}
+
+// 2. Concurrent web applications
+Map<String, Session> activeSessions = new ConcurrentHashMap<>();
+for (Session session : activeSessions.values()) {
+    if (session.isExpired()) {
+        activeSessions.remove(session.getId()); // Safe concurrent modification
+    }
+}
+```
 
 **Best Practices:**
 ```java
@@ -1409,56 +1402,7 @@ CopyOnWriteArrayList<String> threadSafeList = new CopyOnWriteArrayList<>();
 ```java
 import java.util.*;
 
-public class ComparableComparatorDemo {
-    
-    public static void main(String[] args) {
-        naturalOrderingDemo();
-        customComparatorDemo();
-    }
-    
-    public static void naturalOrderingDemo() {
-        System.out.println("=== Natural Ordering with Comparable ===");
-        
-        List<Person> people = new ArrayList<>(Arrays.asList(
-            new Person("John", 25),
-            new Person("Alice", 30),
-            new Person("Bob", 20)
-        ));
-        
-        // Before sorting
-        System.out.println("Before sorting: " + people);
-        
-        // Sort using natural ordering (age)
-        Collections.sort(people);
-        
-        System.out.println("After sorting by age: " + people);
-    }
-    
-    public static void customComparatorDemo() {
-        System.out.println("\n=== Custom Ordering with Comparator ===");
-        
-        List<Person> people = new ArrayList<>(Arrays.asList(
-            new Person("John", 25),
-            new Person("Alice", 30),
-            new Person("Bob", 20)
-        ));
-        
-        // Before sorting
-        System.out.println("Before sorting: " + people);
-        
-        // Sort using custom comparator (name)
-        Collections.sort(people, new PersonNameComparator());
-        
-        System.out.println("After sorting by name: " + people);
-        
-        // Sort using lambda comparator (age)
-        Collections.sort(people, (p1, p2) -> Integer.compare(p1.getAge(), p2.getAge()));
-        
-        System.out.println("After sorting by age (lambda): " + people);
-    }
-}
-
-// Person class implementing Comparable
+// Person class implementing Comparable (natural ordering)
 class Person implements Comparable<Person> {
     private String name;
     private int age;
@@ -1468,28 +1412,39 @@ class Person implements Comparable<Person> {
         this.age = age;
     }
     
-    public int getAge() {
-        return age;
-    }
-    
     @Override
     public int compareTo(Person other) {
-        return Integer.compare(this.age, other.age); // Natural order by age
+        return Integer.compare(this.age, other.age); // Sort by age
     }
     
     @Override
     public String toString() {
-        return name + " (" + age + ")";
+        return name + "(" + age + ")";
     }
 }
 
-// Comparator for Person by name
-class PersonNameComparator implements Comparator<Person> {
-    @Override
+// Using Comparable (natural ordering)
+List<Person> people = Arrays.asList(
+    new Person("John", 25),
+    new Person("Alice", 30),
+    new Person("Bob", 20)
+);
+
+Collections.sort(people); // Uses compareTo() method
+System.out.println("Sorted by age: " + people); // [Bob(20), John(25), Alice(30)]
+
+// Using Comparator (custom ordering)
+Collections.sort(people, new Comparator<Person>() {
     public int compare(Person p1, Person p2) {
-        return p1.name.compareTo(p2.name); // Order by name
+        return p1.name.compareTo(p2.name); // Sort by name
     }
-}
+});
+System.out.println("Sorted by name: " + people); // [Alice(30), Bob(20), John(25)]
+
+// Lambda expression (Java 8+)
+people.sort((p1, p2) -> p1.name.compareTo(p2.name));
+people.sort(Comparator.comparing(p -> p.name)); // Method reference
+```
 ```
 
 **When to Use Comparable:**
