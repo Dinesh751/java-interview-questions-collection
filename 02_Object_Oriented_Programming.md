@@ -25,80 +25,394 @@ This section covers Object-Oriented Programming concepts in Java including class
 
 **Difficulty Level:** Beginner
 
-**Answer:**
-The four fundamental pillars of OOP are:
+**Detailed Explanation:**
 
-**1. Encapsulation** - Bundling data (attributes) and methods that operate on the data within a single unit (class), and restricting direct access to some components.
+**Object-Oriented Programming (OOP)** is a programming paradigm based on the concept of "objects" which contain data (attributes) and code (methods). The four fundamental principles that form the foundation of OOP are often called the **"Four Pillars of OOP."**
 
-**2. Inheritance** - Creating new classes based on existing classes, allowing code reuse and establishing "is-a" relationships.
+**Historical Context:**
+OOP was developed to address the complexity of large software systems by organizing code in a way that mirrors real-world entities and relationships, making software more maintainable, reusable, and scalable.
 
-**3. Polymorphism** - The ability of objects to take multiple forms. Same method name can behave differently based on the object calling it.
+**The Four Pillars:**
 
-**4. Abstraction** - Hiding complex implementation details and showing only essential features of an object.
+### **1. ENCAPSULATION** - Data Hiding and Access Control
 
-**Code Example:**
+**Definition**: Bundling data (attributes) and methods that operate on that data within a single unit (class), while restricting direct access to some components.
+
+**Key Concepts:**
+- **Data Hiding**: Private fields cannot be accessed directly from outside the class
+- **Access Control**: Use access modifiers (private, protected, public) to control visibility
+- **Getter/Setter Methods**: Provide controlled access to private data
+- **Information Hiding**: Hide implementation details from the outside world
+
+**Benefits:**
+- **Security**: Prevents unauthorized access and modification
+- **Maintainability**: Changes to internal implementation don't affect external code
+- **Validation**: Can add validation logic in setter methods
+- **Debugging**: Easier to track data modifications
+
+### **2. INHERITANCE** - Code Reuse and "IS-A" Relationships
+
+**Definition**: Creating new classes (child/subclass) based on existing classes (parent/superclass), allowing code reuse and establishing hierarchical relationships.
+
+**Key Concepts:**
+- **Parent Class (Superclass)**: Base class that provides common functionality
+- **Child Class (Subclass)**: Derived class that inherits from parent and can add/override functionality
+- **"IS-A" Relationship**: Child class is a specialized version of parent class
+- **Method Inheritance**: Child automatically gets all non-private methods from parent
+- **Constructor Chaining**: Child constructor can call parent constructor using super()
+
+**Types of Inheritance in Java:**
+- **Single Inheritance**: One child class extends one parent class
+- **Multilevel Inheritance**: Child extends parent, which extends grandparent
+- **Hierarchical Inheritance**: Multiple child classes extend same parent
+- **No Multiple Inheritance**: Java doesn't support multiple class inheritance (use interfaces)
+
+### **3. POLYMORPHISM** - "One Interface, Multiple Forms"
+
+**Definition**: The ability of objects to take multiple forms, allowing the same method name to behave differently based on the object calling it.
+
+**Types of Polymorphism:**
+- **Compile-time Polymorphism (Method Overloading)**: Same method name, different parameters
+- **Runtime Polymorphism (Method Overriding)**: Child class provides specific implementation of parent method
+- **Interface Polymorphism**: Different classes implementing same interface differently
+
+**Key Concepts:**
+- **Dynamic Method Dispatch**: JVM decides which method to call at runtime
+- **Late Binding**: Method binding happens at runtime, not compile time
+- **Upcasting**: Treating child object as parent type
+- **Virtual Methods**: All non-static, non-final, non-private methods are virtual in Java
+
+### **4. ABSTRACTION** - Hiding Complexity and Showing Essential Features
+
+**Definition**: Hiding complex implementation details while showing only essential features and functionality to the user.
+
+**Implementation Methods:**
+- **Abstract Classes**: Classes that cannot be instantiated, may have abstract methods
+- **Interfaces**: Contracts that define what methods a class must implement
+- **Concrete Methods**: Provide default implementation that can be inherited
+- **Abstract Methods**: Method declarations without implementation
+
+**Benefits:**
+- **Simplicity**: Users interact with simple interface, not complex implementation
+- **Flexibility**: Implementation can change without affecting client code
+- **Modularity**: Different components can be developed independently
+- **Maintainability**: Changes in implementation don't affect interface users
+
+**Key Points:**
+- **Encapsulation vs Abstraction**: Encapsulation is about data hiding, Abstraction is about behavior hiding
+- **Inheritance enables Code Reuse**: Reduces duplication and promotes maintainability
+- **Polymorphism enables Flexibility**: Same interface can work with different object types
+- **All four work together**: The pillars are interconnected and complement each other
+
+**Follow-up Questions:**
+1. **Q:** What's the difference between Encapsulation and Abstraction?
+   **A:** Encapsulation hides data (how), Abstraction hides complexity (what). Encapsulation is implementation technique, Abstraction is design technique.
+
+2. **Q:** How does Java support multiple inheritance?
+   **A:** Through interfaces - a class can implement multiple interfaces, achieving multiple inheritance of type.
+
+3. **Q:** What's the difference between method overloading and overriding?
+   **A:** Overloading is same method name with different parameters (compile-time), Overriding is child class changing parent method implementation (runtime).
+
+**Code Example - Comprehensive OOP Demo:**
 ```java
-// 1. ENCAPSULATION - Data hiding with controlled access
+// Comprehensive demonstration of all four OOP pillars
+
+// 1. ENCAPSULATION - BankAccount class with data hiding
 class BankAccount {
-    private double balance;  // Private data - encapsulated
+    // Private data - encapsulated/hidden from outside access
     private String accountNumber;
+    private double balance;
+    private String ownerName;
+    private static int totalAccounts = 0; // Class-level data
     
-    // Controlled access through public methods
-    public void deposit(double amount) {
+    // Constructor
+    public BankAccount(String accountNumber, String ownerName, double initialBalance) {
+        this.accountNumber = accountNumber;
+        this.ownerName = ownerName;
+        this.balance = Math.max(0, initialBalance); // Validation
+        totalAccounts++;
+    }
+    
+    // Controlled access through public methods (getters/setters)
+    public double getBalance() {
+        return balance; // Read-only access to balance
+    }
+    
+    public String getAccountNumber() {
+        return accountNumber; // Read-only access
+    }
+    
+    // Business logic with validation (encapsulation benefit)
+    public boolean deposit(double amount) {
         if (amount > 0) {
             balance += amount;
+            return true;
         }
+        return false;
     }
     
-    public double getBalance() {
-        return balance;  // Controlled read access
+    public boolean withdraw(double amount) {
+        if (amount > 0 && amount <= balance) {
+            balance -= amount;
+            return true;
+        }
+        return false;
     }
     
-    // Cannot directly access: account.balance = 1000000; // ERROR
+    // Protected method - accessible to subclasses
+    protected void applyInterest(double rate) {
+        balance += balance * rate;
+    }
+    
+    // Static method - belongs to class, not instance
+    public static int getTotalAccounts() {
+        return totalAccounts;
+    }
+    
+    // Override toString for better object representation
+    @Override
+    public String toString() {
+        return "Account[" + accountNumber + ", Owner: " + ownerName + ", Balance: $" + balance + "]";
+    }
 }
 
-// 2. INHERITANCE - "is-a" relationship
-class Vehicle {
-    protected String brand;
-    protected int speed;
+// 2. INHERITANCE - SavingsAccount extends BankAccount
+class SavingsAccount extends BankAccount {
+    private double interestRate;
+    private int freeTransactions;
+    private int transactionCount;
     
-    public void start() {
-        System.out.println("Vehicle starting...");
+    public SavingsAccount(String accountNumber, String ownerName, double initialBalance, double interestRate) {
+        super(accountNumber, ownerName, initialBalance); // Call parent constructor
+        this.interestRate = interestRate;
+        this.freeTransactions = 3;
+        this.transactionCount = 0;
+    }
+    
+    // 3. POLYMORPHISM - Method Overriding (Runtime polymorphism)
+    @Override
+    public boolean withdraw(double amount) {
+        // Add transaction fee logic to parent's withdraw behavior
+        boolean success = super.withdraw(amount); // Call parent method
+        if (success) {
+            transactionCount++;
+            if (transactionCount > freeTransactions) {
+                super.withdraw(2.0); // Transaction fee
+                System.out.println("Transaction fee applied: $2.00");
+            }
+        }
+        return success;
+    }
+    
+    // Additional method specific to SavingsAccount
+    public void applyMonthlyInterest() {
+        applyInterest(interestRate / 12); // Use inherited protected method
+        transactionCount = 0; // Reset monthly transaction count
+        System.out.println("Monthly interest applied: " + (interestRate/12 * 100) + "%");
+    }
+    
+    // Method overloading (Compile-time polymorphism)
+    public void applyBonus() {
+        applyInterest(0.01); // 1% bonus
+    }
+    
+    public void applyBonus(double bonusRate) {
+        applyInterest(bonusRate); // Custom bonus rate
     }
 }
 
-class Car extends Vehicle {  // Car IS-A Vehicle
-    private int doors;
+// 4. ABSTRACTION - Abstract class defining contract
+abstract class Investment {
+    protected String investmentId;
+    protected double principal;
+    protected double currentValue;
+    
+    public Investment(String id, double principal) {
+        this.investmentId = id;
+        this.principal = principal;
+        this.currentValue = principal;
+    }
+    
+    // Concrete method - common implementation
+    public double getPrincipal() {
+        return principal;
+    }
+    
+    public double getCurrentValue() {
+        return currentValue;
+    }
+    
+    public double getGainLoss() {
+        return currentValue - principal;
+    }
+    
+    // Abstract methods - must be implemented by subclasses
+    public abstract void updateValue(); // Each investment type calculates differently
+    public abstract double getAnnualReturn(); // Different calculation for each type
+    public abstract String getInvestmentType();
+}
+
+// Concrete implementation of abstract class
+class StockInvestment extends Investment {
+    private double sharePrice;
+    private int shares;
+    
+    public StockInvestment(String id, double principal, double sharePrice) {
+        super(id, principal);
+        this.sharePrice = sharePrice;
+        this.shares = (int)(principal / sharePrice);
+        this.currentValue = shares * sharePrice;
+    }
     
     @Override
-    public void start() {
-        System.out.println("Car engine starting...");
+    public void updateValue() {
+        // Simulate stock price change
+        sharePrice *= (0.95 + Math.random() * 0.10); // ±5% change
+        currentValue = shares * sharePrice;
     }
     
-    public void openTrunk() {
-        System.out.println("Trunk opened");
-    }
-}
-
-// 3. POLYMORPHISM - Same method, different behavior
-class Animal {
-    public void makeSound() {
-        System.out.println("Animal makes sound");
-    }
-}
-
-class Dog extends Animal {
     @Override
-    public void makeSound() {
-        System.out.println("Dog barks: Woof!");
+    public double getAnnualReturn() {
+        return ((currentValue - principal) / principal) * 100;
+    }
+    
+    @Override
+    public String getInvestmentType() {
+        return "Stock Investment";
     }
 }
 
-class Cat extends Animal {
-    @Override
-    public void makeSound() {
-        System.out.println("Cat meows: Meow!");
+// Interface for additional abstraction
+interface Reportable {
+    void generateReport();
+    String getReportFormat();
+}
+
+// Multiple inheritance through interface
+class PremiumSavingsAccount extends SavingsAccount implements Reportable {
+    
+    public PremiumSavingsAccount(String accountNumber, String ownerName, double initialBalance) {
+        super(accountNumber, ownerName, initialBalance, 0.05); // 5% interest
     }
+    
+    // Interface implementation
+    @Override
+    public void generateReport() {
+        System.out.println("=== Premium Account Report ===");
+        System.out.println("Account: " + getAccountNumber());
+        System.out.println("Balance: $" + getBalance());
+        System.out.println("Account Type: Premium Savings");
+    }
+    
+    @Override
+    public String getReportFormat() {
+        return "PDF";
+    }
+}
+
+// Main class demonstrating all concepts
+public class OOPPillarsDemo {
+    public static void main(String[] args) {
+        System.out.println("=== Four Pillars of OOP Demonstration ===\n");
+        
+        // 1. ENCAPSULATION in action
+        System.out.println("1. ENCAPSULATION:");
+        BankAccount account = new BankAccount("ACC001", "John Doe", 1000.0);
+        System.out.println("Created: " + account);
+        
+        // Can't access private fields directly
+        // account.balance = 5000; // ERROR - balance is private
+        
+        // Must use public methods (controlled access)
+        account.deposit(500);
+        account.withdraw(200);
+        System.out.println("After transactions: " + account);
+        System.out.println("Total accounts created: " + BankAccount.getTotalAccounts());
+        
+        // 2. INHERITANCE in action
+        System.out.println("\n2. INHERITANCE:");
+        SavingsAccount savings = new SavingsAccount("SAV001", "Jane Smith", 2000.0, 0.03);
+        System.out.println("Savings account: " + savings); // Inherited toString()
+        savings.deposit(300); // Inherited method
+        System.out.println("After deposit: " + savings);
+        
+        // 3. POLYMORPHISM in action
+        System.out.println("\n3. POLYMORPHISM:");
+        
+        // Method Overloading (compile-time polymorphism)
+        savings.applyBonus();      // No parameter
+        savings.applyBonus(0.02);  // With parameter
+        
+        // Method Overriding (runtime polymorphism)  
+        BankAccount polymorphicRef = savings; // Upcasting
+        polymorphicRef.withdraw(100); // Calls overridden method in SavingsAccount
+        
+        // Array of different account types (polymorphism)
+        BankAccount[] accounts = {
+            new BankAccount("ACC002", "Alice", 1500),
+            new SavingsAccount("SAV002", "Bob", 2500, 0.04),
+            new PremiumSavingsAccount("PREM001", "Carol", 5000)
+        };
+        
+        System.out.println("Polymorphic behavior:");
+        for (BankAccount acc : accounts) {
+            acc.withdraw(50); // Different behavior based on actual object type
+            System.out.println(acc);
+        }
+        
+        // 4. ABSTRACTION in action
+        System.out.println("\n4. ABSTRACTION:");
+        
+        // Cannot instantiate abstract class
+        // Investment inv = new Investment(); // ERROR
+        
+        // Can instantiate concrete subclass
+        Investment stock = new StockInvestment("STOCK001", 1000, 50.0);
+        System.out.println("Investment Type: " + stock.getInvestmentType());
+        System.out.println("Initial Value: $" + stock.getCurrentValue());
+        
+        stock.updateValue(); // Abstract method implemented
+        System.out.println("Updated Value: $" + stock.getCurrentValue());
+        System.out.println("Annual Return: " + String.format("%.2f%%", stock.getAnnualReturn()));
+        
+        // Interface abstraction
+        PremiumSavingsAccount premium = new PremiumSavingsAccount("PREM002", "David", 10000);
+        premium.generateReport(); // Interface method
+        System.out.println("Report Format: " + premium.getReportFormat());
+        
+        // Demonstrate all pillars working together
+        demonstrateOOPIntegration();
+    }
+    
+    static void demonstrateOOPIntegration() {
+        System.out.println("\n=== OOP Pillars Integration ===");
+        
+        // Polymorphism with abstraction
+        Investment[] portfolio = {
+            new StockInvestment("TECH001", 5000, 100),
+            new StockInvestment("HEALTH001", 3000, 75)
+        };
+        
+        double totalValue = 0;
+        for (Investment inv : portfolio) {
+            inv.updateValue(); // Polymorphic call to overridden method
+            totalValue += inv.getCurrentValue();
+            System.out.println(inv.getInvestmentType() + ": $" + 
+                             String.format("%.2f", inv.getCurrentValue()));
+        }
+        
+        System.out.println("Total Portfolio Value: $" + String.format("%.2f", totalValue));
+        
+        // Encapsulation protecting data integrity
+        SavingsAccount protectedAccount = new SavingsAccount("SAFE001", "Secure User", 1000, 0.02);
+        // protectedAccount.balance = -1000; // ERROR - can't set negative balance directly
+        boolean success = protectedAccount.withdraw(2000); // Validation prevents overdraft
+        System.out.println("Overdraft attempt successful: " + success);
+        System.out.println("Account protected: " + protectedAccount);
+    }
+}
+```
 }
 
 // Polymorphism in action

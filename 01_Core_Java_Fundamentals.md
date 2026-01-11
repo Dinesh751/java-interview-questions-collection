@@ -23,27 +23,191 @@ This section covers basic Java concepts, syntax, and fundamental language featur
 
 **Difficulty Level:** Beginner
 
-**Answer:**
-Java is a high-level, object-oriented programming language developed by Sun Microsystems (now Oracle) in 1995. It follows the "Write Once, Run Anywhere" (WORA) principle.
+**Detailed Explanation:**
 
-**Main Features:**
-1. **Platform Independent** - Java code compiles to bytecode (.class files) that runs on any JVM
-2. **Object-Oriented** - Supports OOP principles like encapsulation, inheritance, polymorphism
-3. **Statically Typed** - Type checking at compile time helps catch errors early
-4. **Robust** - Strong memory management and exception handling
-5. **Secure** - Built-in security features and sandboxing
-6. **Multithreaded** - Built-in support for concurrent programming
-7. **Automatic Memory Management** - Garbage collection handles memory deallocation
-8. **Rich API** - Extensive standard library and framework ecosystem
+**Java** is a high-level, object-oriented, platform-independent programming language developed by **James Gosling** at Sun Microsystems (now Oracle) in 1995. Originally named "Oak," Java was designed with the principle of **"Write Once, Run Anywhere" (WORA)**.
+
+**Java's Evolution and Design Philosophy:**
+- **Initial Purpose**: Originally designed for embedded systems and set-top boxes
+- **Internet Era Adaptation**: Became popular for web development with applets
+- **Enterprise Focus**: Evolved into enterprise applications with robust frameworks
+- **Modern Usage**: Now used for everything from mobile apps (Android) to big data processing
+
+**Core Architecture:**
+```java
+// Java Development Process
+Source Code (.java) → Compiler (javac) → Bytecode (.class) → JVM → Native Code
+```
+
+**Main Features in Detail:**
+
+**1. Platform Independence:**
+- **Bytecode**: Java compiles to platform-neutral bytecode
+- **JVM Layer**: Each platform has its own JVM implementation
+- **Benefits**: Same code runs on Windows, Linux, macOS without modification
+
+**2. Object-Oriented Programming:**
+- **Everything is an Object**: Except primitives, everything inherits from Object class
+- **Encapsulation**: Data hiding with access modifiers
+- **Inheritance**: Code reuse through class hierarchies  
+- **Polymorphism**: Method overriding and overloading
+- **Abstraction**: Abstract classes and interfaces
+
+**3. Memory Management:**
+- **Automatic Garbage Collection**: No manual memory management
+- **Memory Areas**: Stack, Heap, Method Area, PC Register, Native Method Stack
+- **Reference Types**: Strong, Weak, Soft, Phantom references
+
+**4. Security Features:**
+- **Bytecode Verification**: JVM verifies bytecode before execution
+- **Security Manager**: Controls access to system resources
+- **Sandboxing**: Applets run in restricted environment
+- **No Pointers**: Eliminates direct memory access vulnerabilities
+
+**Key Points:**
+- **Strongly Typed**: Variable types must be declared and enforced at compile time
+- **Automatic Memory Management**: Garbage collector handles memory deallocation
+- **Rich Standard Library**: Extensive APIs for networking, I/O, collections, concurrency
+- **Multi-threading Support**: Built-in threading with synchronized keyword
+- **Exception Handling**: try-catch-finally blocks for robust error handling
+- **Dynamic Loading**: Classes loaded at runtime as needed
 
 **Follow-up Questions:**
-- What is "Write Once, Run Anywhere" (WORA)?
-- How does Java achieve platform independence?
+1. **Q:** What is "Write Once, Run Anywhere" (WORA) and how does Java achieve it?
+   **A:** Java source compiles to bytecode that runs on any JVM, making applications platform-independent.
 
-**Key Points to Remember:**
-- Java source code (.java) → Compiled to bytecode (.class) → Runs on JVM
-- JVM acts as an intermediary between bytecode and operating system
-- Platform independence is achieved through JVM abstraction layer 
+2. **Q:** How does Java achieve platform independence compared to C/C++?
+   **A:** C/C++ compile to native machine code (platform-specific), Java compiles to bytecode (platform-neutral).
+
+3. **Q:** What are the trade-offs of Java's platform independence?
+   **A:** Benefits: portability, easier deployment. Trade-offs: slight performance overhead due to JVM layer.
+
+**Code Example - Java Features Demonstration:**
+```java
+// Demonstrating core Java features
+public class JavaFeaturesDemo {
+    // 1. Object-Oriented - Encapsulation
+    private String name;
+    private int value;
+    
+    // 2. Constructor overloading - Polymorphism
+    public JavaFeaturesDemo() {
+        this("Default", 0);
+    }
+    
+    public JavaFeaturesDemo(String name, int value) {
+        this.name = name;
+        this.value = value;
+    }
+    
+    // 3. Method overloading - Polymorphism
+    public void display() {
+        System.out.println("Name: " + name + ", Value: " + value);
+    }
+    
+    public void display(String prefix) {
+        System.out.println(prefix + " - Name: " + name + ", Value: " + value);
+    }
+    
+    // 4. Exception handling
+    public void divide(int divisor) {
+        try {
+            int result = value / divisor;
+            System.out.println("Result: " + result);
+        } catch (ArithmeticException e) {
+            System.out.println("Cannot divide by zero: " + e.getMessage());
+        } finally {
+            System.out.println("Division operation completed");
+        }
+    }
+    
+    // 5. Multi-threading support
+    public synchronized void increment() {
+        value++;
+    }
+    
+    // 6. Automatic memory management - objects eligible for GC when no references
+    public static void main(String[] args) {
+        JavaFeaturesDemo demo = new JavaFeaturesDemo("Java", 42);
+        demo.display();
+        demo.display("Demo");
+        demo.divide(2);
+        demo.divide(0);
+        
+        // 7. Platform independence - this same bytecode runs on any OS with JVM
+        System.out.println("Running on: " + System.getProperty("os.name"));
+        System.out.println("Java version: " + System.getProperty("java.version"));
+    }
+}
+```
+
+**Real-Time Example - Cross-Platform Application:**
+```java
+// Banking application demonstrating Java's key features
+public class BankingApplication {
+    // Platform-independent - runs same on Windows/Linux/Mac
+    public static void main(String[] args) {
+        // Object-oriented design
+        BankAccount account = new BankAccount("12345", 1000.0);
+        
+        // Multi-threading for concurrent transactions
+        Thread depositor = new Thread(() -> {
+            for (int i = 0; i < 5; i++) {
+                account.deposit(100.0);
+                System.out.println("Deposited 100, Balance: " + account.getBalance());
+            }
+        });
+        
+        Thread withdrawer = new Thread(() -> {
+            for (int i = 0; i < 3; i++) {
+                account.withdraw(150.0);
+                System.out.println("Withdrew 150, Balance: " + account.getBalance());
+            }
+        });
+        
+        depositor.start();
+        withdrawer.start();
+        
+        try {
+            depositor.join();
+            withdrawer.join();
+        } catch (InterruptedException e) {
+            System.out.println("Thread interrupted: " + e.getMessage());
+        }
+        
+        System.out.println("Final balance: " + account.getBalance());
+    }
+}
+
+// Encapsulation and thread safety
+class BankAccount {
+    private String accountNumber;
+    private double balance;
+    
+    public BankAccount(String accountNumber, double initialBalance) {
+        this.accountNumber = accountNumber;
+        this.balance = initialBalance;
+    }
+    
+    // Synchronized for thread safety
+    public synchronized void deposit(double amount) {
+        if (amount > 0) {
+            balance += amount;
+        }
+    }
+    
+    public synchronized boolean withdraw(double amount) {
+        if (amount > 0 && amount <= balance) {
+            balance -= amount;
+            return true;
+        }
+        return false;
+    }
+    
+    public synchronized double getBalance() {
+        return balance;
+    }
+} 
 
 ---
 
@@ -51,32 +215,180 @@ Java is a high-level, object-oriented programming language developed by Sun Micr
 
 **Difficulty Level:** Beginner
 
-**Answer:**
+**Detailed Explanation:**
+
+Understanding the **Java Platform Architecture** is crucial for Java developers. The platform consists of three main components that work together to provide Java's "write once, run anywhere" capability.
+
 **JVM (Java Virtual Machine):**
-- Runtime environment that executes Java bytecode
-- Platform-specific implementation
-- Provides memory management, garbage collection, and bytecode interpretation
+- **Definition**: Runtime environment that executes Java bytecode
+- **Platform Specific**: Each OS (Windows, Linux, macOS) has its own JVM implementation
+- **Core Functions**: 
+  - Bytecode interpretation/compilation (JIT)
+  - Memory management and garbage collection
+  - Thread management
+  - Security enforcement
+  - Native method interface
 
 **JRE (Java Runtime Environment):**
-- Contains JVM + Java standard libraries + supporting files
-- Needed to run Java applications
-- Does not include development tools
+- **Definition**: Complete runtime package for executing Java applications
+- **Components**: JVM + Core Libraries + Supporting Files
+- **Purpose**: Provides everything needed to run Java programs
+- **Libraries Included**: java.lang, java.util, java.io, javax.swing, etc.
+- **Missing**: Development tools (compiler, debugger, documentation tools)
 
 **JDK (Java Development Kit):**
-- Contains JRE + development tools (compiler, debugger, etc.)
-- Needed to develop Java applications
-- Includes javac (compiler), java (interpreter), javadoc, jar, etc.
+- **Definition**: Complete development package for creating Java applications
+- **Components**: JRE + Development Tools + Documentation + Source Code
+- **Development Tools**: 
+  - javac (Java Compiler)
+  - java (Java Application Launcher)
+  - javadoc (Documentation Generator)
+  - jar (Java Archive Tool)
+  - jdb (Java Debugger)
+  - javap (Class File Disassembler)
 
-**Relationship:** JDK ⊃ JRE ⊃ JVM
+**Architecture Relationship:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        JDK (Java Development Kit)           │
+│  ┌─────────────────────────────────────────────────────┐    │
+│  │                JRE (Java Runtime Environment)       │    │
+│  │  ┌─────────────────────────────────────────────┐    │    │
+│  │  │         JVM (Java Virtual Machine)          │    │    │
+│  │  │  • Bytecode Interpreter                    │    │    │
+│  │  │  • Just-In-Time Compiler                   │    │    │
+│  │  │  • Garbage Collector                       │    │    │
+│  │  │  • Memory Management                       │    │    │
+│  │  └─────────────────────────────────────────────┘    │    │
+│  │  • Core Libraries (java.*, javax.*)                 │    │
+│  │  • Extension Libraries                              │    │
+│  └─────────────────────────────────────────────────────┘    │
+│  • Development Tools (javac, javadoc, jar, etc.)            │
+│  • Source Code                                              │
+│  • Documentation                                            │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**JVM Architecture Details:**
+```java
+// JVM Memory Areas
+Heap Memory:
+├── Young Generation
+│   ├── Eden Space
+│   ├── Survivor Space 0 (S0)
+│   └── Survivor Space 1 (S1)
+└── Old Generation (Tenured)
+
+Non-Heap Memory:
+├── Method Area (Metaspace in Java 8+)
+├── Code Cache
+├── PC (Program Counter) Register
+├── JVM Stack (per thread)
+└── Native Method Stack
+```
+
+**Key Points:**
+- **JVM**: Platform-specific, handles bytecode execution
+- **JRE**: Platform-independent APIs + platform-specific JVM
+- **JDK**: Everything in JRE + development tools
+- **Installation**: Developers need JDK, end users need only JRE
+- **Versions**: Must be compatible (can't run Java 11 bytecode on Java 8 JVM)
 
 **Follow-up Questions:**
-- What components are included in JDK?
-- Can you run Java programs with only JRE?
+1. **Q:** What components are included in JDK but not in JRE?
+   **A:** Development tools like javac (compiler), javadoc, jar, jdb (debugger), javap, and source code.
 
-**Key Points to Remember:**
-- JVM is platform-specific, JRE and JDK are platform-independent at API level
-- You need JDK for development, JRE for running applications
-- JVM translates bytecode to native machine code
+2. **Q:** Can you run Java programs with only JRE?
+   **A:** Yes, JRE is sufficient to run compiled Java applications (.class or .jar files).
+
+3. **Q:** Why is JVM platform-specific while Java is platform-independent?
+   **A:** JVM translates platform-neutral bytecode to platform-specific native code, providing the abstraction layer.
+
+**Code Example - Understanding the Components:**
+```java
+// This demonstrates what each component does
+
+// 1. DEVELOPMENT PHASE (Requires JDK)
+public class ComponentDemo {
+    public static void main(String[] args) {
+        System.out.println("Hello from Java!");
+        System.out.println("JVM Version: " + System.getProperty("java.vm.version"));
+        System.out.println("JRE Version: " + System.getProperty("java.version"));
+        
+        // Display JVM memory information
+        Runtime runtime = Runtime.getRuntime();
+        long totalMemory = runtime.totalMemory();
+        long freeMemory = runtime.freeMemory();
+        long usedMemory = totalMemory - freeMemory;
+        
+        System.out.println("Total JVM Memory: " + totalMemory / (1024 * 1024) + " MB");
+        System.out.println("Used Memory: " + usedMemory / (1024 * 1024) + " MB");
+        System.out.println("Free Memory: " + freeMemory / (1024 * 1024) + " MB");
+    }
+}
+
+// Commands used with different components:
+
+// JDK COMMANDS (Development):
+// javac ComponentDemo.java    // Compile .java to .class (bytecode)
+// javadoc ComponentDemo.java  // Generate documentation
+// jar cf demo.jar *.class     // Create JAR file
+
+// JRE COMMANDS (Runtime):
+// java ComponentDemo          // Run the application
+// java -jar demo.jar         // Run JAR file
+
+// JVM OPTIONS:
+// java -Xms512m -Xmx1024m ComponentDemo  // Set JVM heap size
+// java -verbose:gc ComponentDemo         // Show garbage collection info
+```
+
+**Real-Time Example - Development vs Production Environment:**
+```java
+// Development Environment Setup (Requires JDK)
+public class DevelopmentSetup {
+    public static void main(String[] args) {
+        System.out.println("=== Development Environment ===");
+        
+        // 1. Source code compilation (needs javac from JDK)
+        System.out.println("Compiling source code...");
+        
+        // 2. Documentation generation (needs javadoc from JDK)
+        System.out.println("Generating documentation...");
+        
+        // 3. Creating deployment package (needs jar from JDK)
+        System.out.println("Creating JAR package...");
+        
+        // 4. Debugging (needs jdb from JDK)
+        System.out.println("Debugging application...");
+        
+        showSystemInfo();
+    }
+    
+    static void showSystemInfo() {
+        System.out.println("\n=== Runtime Information (JRE provides this) ===");
+        System.out.println("Java Home: " + System.getProperty("java.home"));
+        System.out.println("Java Version: " + System.getProperty("java.version"));
+        System.out.println("JVM Name: " + System.getProperty("java.vm.name"));
+        System.out.println("OS: " + System.getProperty("os.name"));
+        
+        // JVM memory management in action
+        Runtime rt = Runtime.getRuntime();
+        System.out.println("Available Processors: " + rt.availableProcessors());
+        System.out.println("Max Memory: " + rt.maxMemory() / (1024*1024) + " MB");
+        
+        // This triggers JVM's garbage collection
+        System.gc();
+        System.out.println("Garbage collection requested");
+    }
+}
+
+// Production Environment (Only needs JRE)
+// - No source code compilation needed
+// - Just runs the pre-compiled bytecode
+// - JVM handles platform-specific execution
+// - JRE libraries provide all runtime support
+```
 
 ---
 
@@ -84,20 +396,273 @@ Java is a high-level, object-oriented programming language developed by Sun Micr
 
 **Difficulty Level:** Beginner
 
-**Answer:**
-Java has 8 primitive data types:
+**Detailed Explanation:**
 
-**Numeric Types:**
-- **byte**: 8-bit signed integer (-128 to 127)
-- **short**: 16-bit signed integer (-32,768 to 32,767)
-- **int**: 32-bit signed integer (-2³¹ to 2³¹-1)
-- **long**: 64-bit signed integer (-2⁶³ to 2⁶³-1)
+Java has **8 primitive data types** that are the building blocks for data manipulation. These are **not objects** and are stored directly in memory (stack for local variables, directly in objects for instance variables), making them more efficient than object types.
+
+**Primitive Data Types Classification:**
+
+**Integer Types (Whole Numbers):**
+- **byte**: 8-bit signed integer
+  - Range: -128 to 127 (-2⁷ to 2⁷-1)
+  - Default: 0
+  - Use case: Saving memory in large arrays, file I/O operations
+
+- **short**: 16-bit signed integer  
+  - Range: -32,768 to 32,767 (-2¹⁵ to 2¹⁵-1)
+  - Default: 0
+  - Use case: Memory-efficient storage when range is sufficient
+
+- **int**: 32-bit signed integer
+  - Range: -2,147,483,648 to 2,147,483,647 (-2³¹ to 2³¹-1)
+  - Default: 0
+  - Use case: Most commonly used integer type
+
+- **long**: 64-bit signed integer
+  - Range: -9,223,372,036,854,775,808 to 9,223,372,036,854,775,807 (-2⁶³ to 2⁶³-1)
+  - Default: 0L
+  - Use case: Large numbers like timestamps, file sizes
+
+**Floating-Point Types (Decimal Numbers):**
 - **float**: 32-bit IEEE 754 floating point
-- **double**: 64-bit IEEE 754 floating point
+  - Range: ±1.4E-45 to ±3.4028235E38
+  - Default: 0.0f
+  - Precision: ~6-7 decimal digits
+  - Use case: Graphics, scientific calculations where memory is crucial
 
-**Non-numeric Types:**
-- **char**: 16-bit Unicode character (0 to 65,535)
+- **double**: 64-bit IEEE 754 floating point
+  - Range: ±4.9E-324 to ±1.7976931348623157E308
+  - Default: 0.0d
+  - Precision: ~15-16 decimal digits
+  - Use case: Default choice for decimal values, financial calculations
+
+**Character Type:**
+- **char**: 16-bit Unicode character
+  - Range: 0 to 65,535 (0 to 2¹⁶-1)
+  - Default: '\u0000' (null character)
+  - Use case: Storing single characters, text processing
+
+**Boolean Type:**
 - **boolean**: true or false
+  - Size: JVM-dependent (typically 1 byte)
+  - Default: false
+  - Use case: Logical conditions, flags
+
+**Memory Layout and Performance:**
+```java
+// Memory usage comparison (approximate)
+byte    b = 1;     // 1 byte
+short   s = 1;     // 2 bytes  
+int     i = 1;     // 4 bytes
+long    l = 1L;    // 8 bytes
+float   f = 1.0f;  // 4 bytes
+double  d = 1.0;   // 8 bytes
+char    c = 'A';   // 2 bytes
+boolean bool = true; // 1 byte (JVM dependent)
+```
+
+**Key Points:**
+- **Not Objects**: Primitives are not objects, no methods can be called on them
+- **Pass by Value**: Primitives are always passed by value, not by reference
+- **Stack Storage**: Local primitive variables stored on stack (faster access)
+- **Default Values**: All primitives have default values when used as instance variables
+- **Wrapper Classes**: Each primitive has corresponding wrapper class (Integer, Double, etc.)
+- **Autoboxing/Unboxing**: Automatic conversion between primitives and wrapper classes
+
+**Follow-up Questions:**
+1. **Q:** What's the difference between int and Integer?
+   **A:** int is primitive (stored by value), Integer is wrapper class (object with methods).
+
+2. **Q:** Why does Java have multiple integer types?
+   **A:** Memory optimization - use smaller types when range permits to save memory in large datasets.
+
+3. **Q:** Can primitives be null?
+   **A:** No, only object references can be null. Primitives have default values.
+
+**Code Example - Primitive Types in Action:**
+```java
+public class PrimitiveTypesDemo {
+    // Instance variables get default values
+    static byte byteVar;        // 0
+    static short shortVar;      // 0  
+    static int intVar;          // 0
+    static long longVar;        // 0L
+    static float floatVar;      // 0.0f
+    static double doubleVar;    // 0.0d
+    static char charVar;        // '\u0000'
+    static boolean boolVar;     // false
+    
+    public static void main(String[] args) {
+        // 1. INTEGER TYPES - Range demonstration
+        System.out.println("=== INTEGER TYPES ===");
+        byte maxByte = Byte.MAX_VALUE;          // 127
+        short maxShort = Short.MAX_VALUE;       // 32767
+        int maxInt = Integer.MAX_VALUE;         // 2147483647
+        long maxLong = Long.MAX_VALUE;          // 9223372036854775807L
+        
+        System.out.println("byte max: " + maxByte);
+        System.out.println("short max: " + maxShort);
+        System.out.println("int max: " + maxInt);
+        System.out.println("long max: " + maxLong);
+        
+        // 2. OVERFLOW BEHAVIOR
+        System.out.println("\n=== OVERFLOW DEMO ===");
+        int almostMax = Integer.MAX_VALUE;
+        System.out.println("Max int: " + almostMax);
+        System.out.println("Max int + 1: " + (almostMax + 1)); // Wraps around to negative!
+        
+        // 3. FLOATING POINT PRECISION
+        System.out.println("\n=== FLOATING POINT PRECISION ===");
+        float floatNum = 0.1f + 0.2f;
+        double doubleNum = 0.1 + 0.2;
+        System.out.println("float 0.1 + 0.2 = " + floatNum);      // Not exactly 0.3!
+        System.out.println("double 0.1 + 0.2 = " + doubleNum);    // Not exactly 0.3!
+        
+        // 4. CHARACTER OPERATIONS
+        System.out.println("\n=== CHARACTER OPERATIONS ===");
+        char ch1 = 'A';
+        char ch2 = 65;          // ASCII value of 'A'
+        char ch3 = '\u0041';    // Unicode value of 'A'
+        System.out.println("char 'A': " + ch1);
+        System.out.println("char 65: " + ch2);
+        System.out.println("char \\u0041: " + ch3);
+        
+        // Character arithmetic
+        char nextChar = (char)(ch1 + 1);  // 'B'
+        System.out.println("'A' + 1 = " + nextChar);
+        
+        // 5. BOOLEAN OPERATIONS
+        System.out.println("\n=== BOOLEAN OPERATIONS ===");
+        boolean result1 = true && false;   // false
+        boolean result2 = true || false;   // true
+        boolean result3 = !true;           // false
+        System.out.println("true && false = " + result1);
+        System.out.println("true || false = " + result2);
+        System.out.println("!true = " + result3);
+        
+        // 6. TYPE CASTING
+        demonstrateTypeCasting();
+        
+        // 7. DEFAULT VALUES
+        demonstrateDefaultValues();
+    }
+    
+    static void demonstrateTypeCasting() {
+        System.out.println("\n=== TYPE CASTING ===");
+        
+        // Implicit casting (widening) - smaller to larger type
+        int intValue = 100;
+        long longValue = intValue;      // int → long (automatic)
+        float floatValue = longValue;   // long → float (automatic)
+        double doubleValue = floatValue; // float → double (automatic)
+        
+        System.out.println("Widening: int " + intValue + " → double " + doubleValue);
+        
+        // Explicit casting (narrowing) - larger to smaller type
+        double largeDouble = 123.456;
+        float smallFloat = (float)largeDouble;   // Explicit cast needed
+        int smallInt = (int)smallFloat;          // Truncates decimal part
+        byte smallByte = (byte)smallInt;         // May lose data if out of range
+        
+        System.out.println("Narrowing: double " + largeDouble + " → byte " + smallByte);
+        
+        // Data loss example
+        int bigInt = 300;
+        byte smallByteWithLoss = (byte)bigInt;   // byte range is -128 to 127
+        System.out.println("Data loss: int " + bigInt + " → byte " + smallByteWithLoss);
+    }
+    
+    static void demonstrateDefaultValues() {
+        System.out.println("\n=== DEFAULT VALUES ===");
+        System.out.println("Default byte: " + byteVar);
+        System.out.println("Default short: " + shortVar);
+        System.out.println("Default int: " + intVar);
+        System.out.println("Default long: " + longVar);
+        System.out.println("Default float: " + floatVar);
+        System.out.println("Default double: " + doubleVar);
+        System.out.println("Default char: '" + charVar + "' (ASCII: " + (int)charVar + ")");
+        System.out.println("Default boolean: " + boolVar);
+    }
+}
+```
+
+**Real-Time Example - Data Processing Application:**
+```java
+// Sensor data processing system demonstrating primitive type selection
+public class SensorDataProcessor {
+    
+    // Using appropriate primitive types for efficiency
+    private byte sensorId;           // Range 0-255, saves memory for many sensors
+    private short temperature;       // Range -32768 to 32767 (celsius * 100 for precision)
+    private int timestamp;           // Unix timestamp (seconds since epoch)
+    private long nanoTimestamp;      // High-precision nanosecond timestamp
+    private float batteryVoltage;    // 32-bit precision sufficient for voltage
+    private double gpsLatitude;      // 64-bit precision needed for GPS coordinates
+    private char status;             // Single character status code (A=Active, I=Inactive, etc.)
+    private boolean isOnline;        // Simple true/false flag
+    
+    public SensorDataProcessor(byte id, short temp, float voltage, 
+                              double lat, char status, boolean online) {
+        this.sensorId = id;
+        this.temperature = temp;
+        this.timestamp = (int)(System.currentTimeMillis() / 1000);
+        this.nanoTimestamp = System.nanoTime();
+        this.batteryVoltage = voltage;
+        this.gpsLatitude = lat;
+        this.status = status;
+        this.isOnline = online;
+    }
+    
+    public void processReading() {
+        // Temperature conversion using integer arithmetic for precision
+        double actualTemp = temperature / 100.0; // Convert back to celsius
+        
+        // Battery level calculation using float arithmetic
+        double batteryPercent = (batteryVoltage - 3.0) / (4.2 - 3.0) * 100;
+        batteryPercent = Math.max(0, Math.min(100, batteryPercent));
+        
+        System.out.println("Sensor ID: " + sensorId);
+        System.out.println("Temperature: " + actualTemp + "°C");
+        System.out.println("Battery: " + String.format("%.1f%%", batteryPercent));
+        System.out.println("GPS Latitude: " + gpsLatitude);
+        System.out.println("Status: " + status);
+        System.out.println("Online: " + isOnline);
+        System.out.println("Timestamp: " + timestamp);
+        
+        // Demonstrate primitive operations
+        if (actualTemp > 50.0) {
+            status = 'H'; // Hot
+        } else if (actualTemp < -10.0) {
+            status = 'C'; // Cold  
+        } else {
+            status = 'N'; // Normal
+        }
+        
+        // Update online status based on battery
+        isOnline = batteryPercent > 10.0;
+    }
+    
+    public static void main(String[] args) {
+        // Create sensor with different primitive values
+        SensorDataProcessor sensor = new SensorDataProcessor(
+            (byte)42,           // Sensor ID
+            (short)2547,        // Temperature: 25.47°C stored as 2547
+            3.7f,               // Battery voltage
+            40.7128,            // GPS latitude (New York)
+            'A',                // Active status
+            true                // Online
+        );
+        
+        sensor.processReading();
+        
+        // Demonstrate memory efficiency
+        System.out.println("\n=== Memory Usage Analysis ===");
+        System.out.println("Using primitives vs objects:");
+        System.out.println("byte vs Byte: 1 byte vs ~16 bytes (object overhead)");
+        System.out.println("int vs Integer: 4 bytes vs ~16 bytes");
+        System.out.println("For 1000 sensors: primitives = ~30KB, objects = ~160KB");
+    }
+}
 
 **Code Example:**
 ```java
