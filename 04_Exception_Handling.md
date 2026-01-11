@@ -500,6 +500,8 @@ public void readFileNewWay() throws IOException {
 **Q2.1: What happens if both try block and finally block throw exceptions?**
 
 **Answer:**
+When both try and finally blocks throw exceptions, the **finally block exception suppresses the try block exception**. The original exception from the try block is lost unless you use try-with-resources or manually handle suppressed exceptions.
+
 ```java
 public class ExceptionSuppressionDemo {
     public static void main(String[] args) {
@@ -591,6 +593,8 @@ public void tryWithCatchOnly() {
 **Q2.3: What's the order of execution in nested try-catch blocks?**
 
 **Answer:**
+In nested try-catch blocks, execution follows a **specific order**: inner try → inner catch (if exception) → inner finally → outer catch (if re-thrown) → outer finally. The **inner finally always executes** before control passes to outer blocks, even when exceptions are re-thrown.
+
 ```java
 public class NestedTryExecutionOrder {
     public static void main(String[] args) {
@@ -643,6 +647,8 @@ public class NestedTryExecutionOrder {
 **Q2.4: How does try-with-resources handle exceptions during resource closing?**
 
 **Answer:**
+Try-with-resources handles multiple exceptions through **suppressed exception mechanism**. If both the try block and resource closing throw exceptions, the **try block exception becomes primary** and **closing exceptions are suppressed**. Resources are closed in **reverse order** of declaration, and all closing exceptions are preserved as suppressed exceptions.
+
 ```java
 public class ResourceClosingExceptions {
     
@@ -1891,7 +1897,259 @@ public void demonstrateFlow() {
 **Q4.1: What happens when both try block and finally block throw exceptions?**
 
 **Answer:**
+When both try and finally blocks throw exceptions, the **finally block exception suppresses (masks) the try block exception**. The original exception from the try block is **completely lost** unless you use try-with-resources or manually handle suppressed exceptions. This is a dangerous behavior that can hide important debugging information.
+
 ```java
+public class TryFinallyExceptionConflict {
+    
+    public static void main(String[] args) {
+        demonstrateProblem();
+        demonstrateSolution();
+        demonstrateTryWithResources();
+    }
+    
+    // ❌ DANGEROUS - Finally exception masks try exception
+    public static void demonstrateProblem() {
+        System.out.println("=== Exception Masking Problem ===");
+        
+        try {
+            demonstrateExceptionMasking();
+        } catch (Exception e) {
+            System.out.println("Caught exception: " + e.getMessage());
+            System.out.println("Exception type: " + e.getClass().getSimpleName());
+            
+            // The try block exception is completely lost!
+            // We only see "Exception from finally block"
+        }
+    }
+    
+    public static void demonstrateExceptionMasking() throws Exception {
+        try {
+            System.out.println("Throwing exception from try block");
+            throw new RuntimeException("IMPORTANT exception from try block");
+            
+        } finally {
+            System.out.println("Throwing exception from finally block");
+            // This exception OVERWRITES the try block exception
+            throw new Exception("Exception from finally block");
+        }
+        // Result: Only finally exception is thrown, try exception is LOST!
+    }
+    
+    // ✅ SOLUTION 1 - Manual suppression handling
+    public static void demonstrateSolution() {
+        System.out.println("\n=== Manual Exception Preservation ===");
+        
+        try {
+            demonstrateProperHandling();
+        } catch (Exception e) {
+            System.out.println("Primary: " + e.getMessage());
+            
+            // Check for suppressed exceptions
+            Throwable[] suppressed = e.getSuppressed();
+            for (int i = 0; i < suppressed.length; i++) {
+                System.out.println("Suppressed " + (i+1) + ": " + suppressed[i].getMessage());
+            }
+        }
+    }
+    
+    public static void demonstrateProperHandling() throws Exception {
+        Exception tryException = null;
+        
+        try {
+            throw new RuntimeException("Exception from try block");
+        } catch (Exception e) {
+            tryException = e;
+            throw e; // Re-throw to maintain normal flow
+        } finally {
+            try {
+                // Some cleanup that might fail
+                performCleanupThatMightFail();
+            } catch (Exception finallyException) {
+                if (tryException != null) {
+                    // Add finally exception as suppressed to preserve both
+                    tryException.addSuppressed(finallyException);
+                } else {
+                    // No try exception, throw finally exception
+                    throw finallyException;
+                }
+            }
+        }
+    }
+    
+    private static void performCleanupThatMightFail() throws Exception {
+        throw new Exception("Cleanup operation failed");
+    }
+    
+    // ✅ SOLUTION 2 - Use try-with-resources (automatic suppression)
+    public static void demonstrateTryWithResources() {
+        System.out.println("\n=== Try-With-Resources Auto-Suppression ===");
+        
+        try (ProblematicResource resource = new ProblematicResource()) {
+            throw new RuntimeException("Exception from try block");
+            // Resource.close() throws exception, but it's automatically suppressed
+            
+        } catch (Exception e) {
+            System.out.println("Primary: " + e.getMessage());
+            
+            // Suppressed exceptions are automatically preserved
+            for (Throwable suppressed : e.getSuppressed()) {
+                System.out.println("Auto-suppressed: " + suppressed.getMessage());
+            }
+        }
+    }
+    
+    // Example of problematic cleanup code
+    public static void demonstrateCommonScenario() {
+        System.out.println("\n=== Common Real-World Scenario ===");
+        
+        FileInputStream fis = null;
+        try {
+            fis = new FileInputStream("nonexistent-file.txt");
+            // Process file
+        } catch (FileNotFoundException e) {
+            System.out.println("File operation failed: " + e.getMessage());
+        } finally {
+            try {
+                if (fis != null) {
+                    fis.close(); // Might throw IOException
+                }
+            } catch (IOException e) {
+                System.out.println("Cleanup failed: " + e.getMessage());
+                // If both try and finally throw exceptions,
+                // the finally exception would mask the original FileNotFoundException
+            }
+        }
+    }
+    
+    // Better approach for resource management
+    public static void demonstrateBetterResourceManagement() {
+        System.out.println("\n=== Better Resource Management ===");
+        
+        // Use try-with-resources to avoid the problem entirely
+        try (FileInputStream fis = new FileInputStream("nonexistent-file.txt")) {
+            // Process file
+        } catch (IOException e) {
+            System.out.println("Operation failed: " + e.getMessage());
+            // Any exceptions from close() are automatically suppressed
+        }
+    }
+}
+
+// Custom resource that throws exception on close
+class ProblematicResource implements AutoCloseable {
+    public ProblematicResource() {
+        System.out.println("Resource created");
+    }
+    
+    @Override
+    public void close() throws Exception {
+        System.out.println("Closing resource (this will fail)");
+        throw new Exception("Resource cleanup failed");
+    }
+}
+
+// Advanced example showing multiple suppressed exceptions
+class MultipleResourcesExample {
+    
+    public static void demonstrateMultipleSuppression() {
+        try (Resource1 r1 = new Resource1();
+             Resource2 r2 = new Resource2();
+             Resource3 r3 = new Resource3()) {
+            
+            System.out.println("Working with multiple resources");
+            throw new RuntimeException("Main operation failed");
+            
+        } catch (Exception e) {
+            System.out.println("Primary exception: " + e.getMessage());
+            
+            // All resource closing exceptions are suppressed
+            Throwable[] suppressed = e.getSuppressed();
+            System.out.println("Suppressed exceptions count: " + suppressed.length);
+            
+            for (int i = 0; i < suppressed.length; i++) {
+                System.out.println("Suppressed " + (i+1) + ": " + 
+                                 suppressed[i].getClass().getSimpleName() + 
+                                 " - " + suppressed[i].getMessage());
+            }
+        }
+    }
+}
+
+class Resource1 implements AutoCloseable {
+    @Override
+    public void close() throws Exception {
+        throw new IOException("Resource1 close failed");
+    }
+}
+
+class Resource2 implements AutoCloseable {
+    @Override
+    public void close() throws Exception {
+        throw new SQLException("Resource2 close failed");
+    }
+}
+
+class Resource3 implements AutoCloseable {
+    @Override
+    public void close() throws Exception {
+        throw new RuntimeException("Resource3 close failed");
+    }
+}
+```
+
+**Key Behaviors:**
+
+1. **Exception Masking**: Finally block exceptions completely hide try block exceptions
+2. **Information Loss**: Original error context is lost, making debugging difficult  
+3. **Suppressed Exceptions**: Java 7+ provides mechanism to preserve both exceptions
+4. **Try-with-resources**: Automatically handles suppression correctly
+
+**Best Practices:**
+
+```java
+// ❌ DON'T - Let finally mask exceptions
+try {
+    riskyOperation();
+} finally {
+    cleanup(); // If this throws, it masks riskyOperation() exception
+}
+
+// ✅ DO - Handle finally exceptions properly
+Exception primaryException = null;
+try {
+    riskyOperation();
+} catch (Exception e) {
+    primaryException = e;
+    throw e;
+} finally {
+    try {
+        cleanup();
+    } catch (Exception e) {
+        if (primaryException != null) {
+            primaryException.addSuppressed(e);
+        } else {
+            throw e;
+        }
+    }
+}
+
+// ✅ BEST - Use try-with-resources when possible
+try (AutoCloseableResource resource = new AutoCloseableResource()) {
+    riskyOperation(); // Any close() exceptions are automatically suppressed
+}
+```
+
+**Real-World Impact:**
+- **Silent Failures**: Critical errors can be hidden by cleanup failures
+- **Debugging Nightmares**: Root cause is lost, only seeing cleanup errors
+- **Production Issues**: Important business logic failures masked by infrastructure errors
+
+**When This Occurs:**
+- File/database connection cleanup fails
+- Resource disposal throws exceptions  
+- Finally blocks with multiple operations that can fail
+- Network resource cleanup during exception handling
 public class TryFinallyExceptionConflict {
     
     public static void main(String[] args) {
