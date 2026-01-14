@@ -1,26 +1,20 @@
-# Java 8+ Modern Features - Interview Questions
+# Java 8+ Modern Features - Quick Reference
 
 ## Overview
-This section covers modern Java features introduced from Java 8 onwards, including functional programming concepts and new APIs.
+Essential modern Java features with simple examples for interview preparation.
 
 ---
 
 ## Topics Covered
-- Lambda Expressions
-- Functional Interfaces
-- Stream API
-- Optional Class
-- Method References
-- Default and Static Methods in Interfaces
-- Date and Time API (java.time)
-- CompletableFuture
-- Collectors
-- Parallel Streams
-- Modules (Java 9+)
-- Local Variable Type Inference (var keyword - Java 10+)
-- Text Blocks (Java 13+)
-- Records (Java 14+)
-- Pattern Matching (Java 14+)
+1. **Lambda Expressions** - Anonymous functions
+2. **Functional Interfaces** - Single method interfaces  
+3. **Stream API** - Functional data processing
+4. **Optional Class** - Null-safe programming
+5. **Method References** - Shorthand for lambdas
+6. **CompletableFuture** - Asynchronous programming
+7. **Records** - Immutable data classes
+8. **Pattern Matching** - Enhanced instanceof/switch
+9. **Text Blocks** - Multi-line strings
 
 ---
 
@@ -38,155 +32,49 @@ This section covers modern Java features introduced from Java 8 onwards, includi
 import java.util.*;
 import java.util.function.*;
 
-public class LambdaExpressionsDemo {
-    
+public class LambdaDemo {
     public static void main(String[] args) {
-        System.out.println("=== Lambda Expressions Demo ===");
-        
-        LambdaExpressionsDemo demo = new LambdaExpressionsDemo();
-        demo.basicLambdaExamples();
-        demo.functionalInterfaceExamples();
-        demo.customFunctionalInterface();
-        demo.methodReferenceExamples();
-    }
-    
-    public void basicLambdaExamples() {
-        System.out.println("\n--- Basic Lambda Examples ---");
-        
-        // Old way with anonymous class
-        Runnable oldWay = new Runnable() {
-            @Override
-            public void run() {
-                System.out.println("Old way: Anonymous class");
-            }
-        };
-        
-        // New way with lambda
-        Runnable newWay = () -> System.out.println("New way: Lambda expression");
-        
-        oldWay.run();
-        newWay.run();
+        // Basic lambda syntax
+        Runnable task = () -> System.out.println("Lambda task");
+        task.run();
         
         // Lambda with parameters
         List<String> names = Arrays.asList("Alice", "Bob", "Charlie");
+        names.forEach(name -> System.out.println("Hello, " + name));
         
-        // Old way
-        names.forEach(new Consumer<String>() {
-            @Override
-            public void accept(String name) {
-                System.out.println("Hello, " + name);
-            }
-        });
+        // Built-in functional interfaces
+        List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);
         
-        // Lambda way
-        names.forEach(name -> System.out.println("Hi, " + name));
+        // Predicate - test condition
+        Predicate<Integer> isEven = n -> n % 2 == 0;
+        numbers.stream().filter(isEven).forEach(System.out::println);
         
-        // Lambda with multiple statements
-        names.forEach(name -> {
-            String greeting = "Welcome, " + name;
-            System.out.println(greeting.toUpperCase());
-        });
-    }
-    
-    public void functionalInterfaceExamples() {
-        System.out.println("\n--- Built-in Functional Interfaces ---");
+        // Function - transform input to output
+        Function<String, Integer> length = String::length;
+        names.stream().map(length).forEach(System.out::println);
         
-        List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
+        // Consumer - consume input, no return
+        Consumer<String> printer = s -> System.out.println("Message: " + s);
+        names.forEach(printer);
         
-        // 1. Predicate<T> - takes input, returns boolean
-        Predicate<Integer> isEven = num -> num % 2 == 0;
-        System.out.println("Even numbers:");
-        numbers.stream()
-               .filter(isEven)
-               .forEach(System.out::println);
+        // Supplier - provide output, no input
+        Supplier<Double> random = Math::random;
+        System.out.println("Random: " + random.get());
         
-        // 2. Function<T, R> - takes input T, returns R
-        Function<String, Integer> stringLength = str -> str.length();
-        List<String> words = Arrays.asList("Java", "Lambda", "Functional");
-        System.out.println("\nString lengths:");
-        words.stream()
-             .map(stringLength)
-             .forEach(System.out::println);
+        // Custom functional interface
+        Calculator add = (a, b) -> a + b;
+        System.out.println("5 + 3 = " + add.calculate(5, 3));
         
-        // 3. Consumer<T> - takes input, returns nothing
-        Consumer<String> printer = msg -> System.out.println("Message: " + msg);
-        words.forEach(printer);
-        
-        // 4. Supplier<T> - takes nothing, returns T
-        Supplier<String> randomGreeting = () -> {
-            String[] greetings = {"Hello", "Hi", "Hey", "Greetings"};
-            return greetings[new Random().nextInt(greetings.length)];
-        };
-        System.out.println("\nRandom greeting: " + randomGreeting.get());
-        
-        // 5. BiFunction<T, U, R> - takes two inputs, returns R
-        BiFunction<Integer, Integer, Integer> add = (a, b) -> a + b;
-        BiFunction<Integer, Integer, Integer> multiply = (a, b) -> a * b;
-        
-        System.out.println("5 + 3 = " + add.apply(5, 3));
-        System.out.println("5 * 3 = " + multiply.apply(5, 3));
-    }
-    
-    public void customFunctionalInterface() {
-        System.out.println("\n--- Custom Functional Interface ---");
-        
-        // Using custom functional interface
-        Calculator addition = (a, b) -> a + b;
-        Calculator subtraction = (a, b) -> a - b;
-        Calculator multiplication = (a, b) -> a * b;
-        Calculator division = (a, b) -> b != 0 ? a / b : 0;
-        
-        int x = 10, y = 5;
-        
-        System.out.println(x + " + " + y + " = " + addition.calculate(x, y));
-        System.out.println(x + " - " + y + " = " + subtraction.calculate(x, y));
-        System.out.println(x + " * " + y + " = " + multiplication.calculate(x, y));
-        System.out.println(x + " / " + y + " = " + division.calculate(x, y));
-        
-        // Lambda with validation
-        Validator<String> emailValidator = email -> 
-            email != null && email.contains("@") && email.contains(".");
-        
-        System.out.println("\nEmail validation:");
-        System.out.println("test@email.com: " + emailValidator.isValid("test@email.com"));
-        System.out.println("invalid-email: " + emailValidator.isValid("invalid-email"));
-    }
-    
-    public void methodReferenceExamples() {
-        System.out.println("\n--- Method References ---");
-        
-        List<String> names = Arrays.asList("alice", "bob", "charlie");
-        
-        // Static method reference
+        // Method references
         names.stream()
-             .map(String::toUpperCase) // Same as: str -> str.toUpperCase()
-             .forEach(System.out::println); // Same as: str -> System.out.println(str)
-        
-        // Instance method reference
-        String prefix = "Mr. ";
-        Function<String, String> addPrefix = prefix::concat; // Same as: str -> prefix.concat(str)
-        
-        names.stream()
-             .map(addPrefix)
-             .forEach(System.out::println);
-        
-        // Constructor reference
-        Supplier<List<String>> listSupplier = ArrayList::new; // Same as: () -> new ArrayList<>()
-        List<String> newList = listSupplier.get();
-        
-        System.out.println("Created new list: " + newList.getClass().getSimpleName());
+             .map(String::toUpperCase)  // Static method reference
+             .forEach(System.out::println); // Instance method reference
     }
 }
 
-// Custom Functional Interfaces
 @FunctionalInterface
 interface Calculator {
     double calculate(double a, double b);
-}
-
-@FunctionalInterface
-interface Validator<T> {
-    boolean isValid(T input);
 }
 ```
 
@@ -212,11 +100,45 @@ x -> x * 2
 (String s) -> s.length()
 ```
 
-**Follow-up Questions:**
-- What is the difference between lambda expressions and anonymous classes?
-- How does the compiler determine the target type for a lambda expression?
-- What are the limitations of lambda expressions?
-- Can lambda expressions access variables from their enclosing scope?
+**Follow-up Questions & Short Answers:**
+
+**Q: What is the difference between lambda expressions and anonymous classes?**
+- **Lambda**: More concise, only for functional interfaces, better performance
+- **Anonymous Class**: More verbose, can implement any interface/extend classes, creates .class file
+- **Memory**: Lambdas use `invokedynamic`, anonymous classes create objects
+
+**Q: How does the compiler determine the target type for a lambda expression?**
+- **Target Typing**: Compiler infers type from context (assignment, method parameter, return type)
+- **Functional Interface**: Must match exactly one abstract method signature
+- **Example**: `Predicate<String> p = s -> s.length() > 5;` (inferred from Predicate)
+
+**Q: What are the limitations of lambda expressions?**
+- ❌ **Only functional interfaces** (single abstract method)
+- ❌ **No state** (cannot have instance variables)
+- ❌ **Cannot throw checked exceptions** (unless interface allows)
+- ❌ **No recursive calls** to itself directly
+- ❌ **Cannot access non-final variables** from enclosing scope
+
+**Q: Can lambda expressions access variables from their enclosing scope?**
+- ✅ **Local variables**: Only if **final** or **effectively final**
+- ✅ **Instance variables**: Full access (can read and modify)
+- ✅ **Static variables**: Full access (can read and modify)
+- ❌ **Mutable locals**: Cannot access variables that change after lambda creation
+
+```java
+public void lambdaScope() {
+    int finalVar = 10;        // Effectively final - OK
+    int mutableVar = 20;      // Will become mutable - ERROR
+    
+    Runnable lambda = () -> {
+        System.out.println(finalVar);    // ✅ OK
+        System.out.println(this.field); // ✅ OK - instance variable
+        // System.out.println(mutableVar); // ❌ ERROR - not effectively final
+    };
+    
+    mutableVar = 30; // This makes mutableVar not effectively final
+}
+```
 
 **Key Points to Remember:**
 - **Functional Interface**: Interface with exactly one abstract method
@@ -241,271 +163,88 @@ x -> x * 2
 import java.util.*;
 import java.util.stream.*;
 
-public class StreamAPIDemo {
-    
+public class StreamDemo {
     public static void main(String[] args) {
-        System.out.println("=== Stream API Demo ===");
-        
-        StreamAPIDemo demo = new StreamAPIDemo();
-        demo.basicStreamOperations();
-        demo.intermediateOperations();
-        demo.terminalOperations();
-        demo.collectingOperations();
-        demo.realWorldExamples();
-    }
-    
-    public void basicStreamOperations() {
-        System.out.println("\n--- Basic Stream Operations ---");
-        
         List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
         
-        // Simple filtering and processing
-        System.out.println("Even numbers:");
+        // Basic filtering and mapping
+        System.out.println("Even numbers squared:");
         numbers.stream()
-               .filter(n -> n % 2 == 0)        // Intermediate operation
-               .forEach(System.out::println);   // Terminal operation
+               .filter(n -> n % 2 == 0)        // Intermediate: filter
+               .map(n -> n * n)               // Intermediate: transform
+               .forEach(System.out::println);  // Terminal: consume
         
-        // Chain multiple operations
-        System.out.println("\nSquares of odd numbers:");
-        numbers.stream()
-               .filter(n -> n % 2 == 1)    // Filter odd numbers
-               .map(n -> n * n)            // Square them
-               .forEach(System.out::println);
+        // Collecting results
+        List<String> words = Arrays.asList("java", "stream", "api");
         
-        // Create stream from different sources
-        Stream<String> stringStream = Stream.of("apple", "banana", "cherry");
-        Stream<Integer> rangeStream = IntStream.range(1, 6).boxed();
+        // Collect to List
+        List<String> upperWords = words.stream()
+                                      .map(String::toUpperCase)
+                                      .collect(Collectors.toList());
         
-        System.out.println("\nFrom Stream.of():");
-        stringStream.forEach(System.out::println);
+        // Collect to Set
+        Set<Integer> lengths = words.stream()
+                                   .map(String::length)
+                                   .collect(Collectors.toSet());
         
-        System.out.println("\nFrom range:");
-        rangeStream.forEach(System.out::println);
-    }
-    
-    public void intermediateOperations() {
-        System.out.println("\n--- Intermediate Operations ---");
+        // Group by length
+        Map<Integer, List<String>> byLength = words.stream()
+                                                  .collect(Collectors.groupingBy(String::length));
         
-        List<String> words = Arrays.asList("apple", "banana", "cherry", "date", "elderberry");
+        // Join strings
+        String joined = words.stream()
+                            .collect(Collectors.joining(", ", "[", "]"));
         
-        // filter() - select elements based on predicate
-        System.out.println("Words longer than 5 characters:");
-        words.stream()
-             .filter(word -> word.length() > 5)
-             .forEach(System.out::println);
+        // Reduction operations
+        OptionalInt max = numbers.stream().mapToInt(n -> n).max();
+        int sum = numbers.stream().mapToInt(n -> n).sum();
         
-        // map() - transform elements
-        System.out.println("\nUppercase words:");
-        words.stream()
-             .map(String::toUpperCase)
-             .forEach(System.out::println);
-        
-        // flatMap() - flatten nested structures
-        List<List<String>> nestedWords = Arrays.asList(
-            Arrays.asList("hello", "world"),
-            Arrays.asList("java", "stream"),
-            Arrays.asList("flat", "map")
-        );
-        
-        System.out.println("\nFlattened words:");
-        nestedWords.stream()
-                   .flatMap(Collection::stream)
-                   .forEach(System.out::println);
-        
-        // distinct() - remove duplicates
-        List<Integer> numbersWithDuplicates = Arrays.asList(1, 2, 2, 3, 3, 3, 4, 5);
-        System.out.println("\nDistinct numbers:");
-        numbersWithDuplicates.stream()
-                            .distinct()
-                            .forEach(System.out::println);
-        
-        // sorted() - sort elements
-        System.out.println("\nSorted words:");
-        words.stream()
-             .sorted()
-             .forEach(System.out::println);
-        
-        // limit() and skip()
-        System.out.println("\nFirst 3 words:");
-        words.stream()
-             .limit(3)
-             .forEach(System.out::println);
-        
-        System.out.println("\nSkip first 2, take next 2:");
-        words.stream()
-             .skip(2)
-             .limit(2)
-             .forEach(System.out::println);
-    }
-    
-    public void terminalOperations() {
-        System.out.println("\n--- Terminal Operations ---");
-        
-        List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-        
-        // forEach() - perform action on each element
-        System.out.println("Numbers multiplied by 2:");
-        numbers.stream()
-               .map(n -> n * 2)
-               .forEach(System.out::println);
-        
-        // collect() - gather elements into collection
-        List<Integer> evenNumbers = numbers.stream()
-                                          .filter(n -> n % 2 == 0)
-                                          .collect(Collectors.toList());
-        System.out.println("Even numbers collected: " + evenNumbers);
-        
-        // reduce() - combine elements into single result
-        Optional<Integer> sum = numbers.stream()
-                                      .reduce((a, b) -> a + b);
-        System.out.println("Sum using reduce: " + sum.orElse(0));
-        
-        int sumWithIdentity = numbers.stream()
-                                    .reduce(0, Integer::sum);
-        System.out.println("Sum with identity: " + sumWithIdentity);
-        
-        // findFirst() and findAny()
+        // Find operations
         Optional<Integer> firstEven = numbers.stream()
                                            .filter(n -> n % 2 == 0)
                                            .findFirst();
-        System.out.println("First even number: " + firstEven.orElse(-1));
         
-        // anyMatch(), allMatch(), noneMatch()
+        // Match operations
         boolean hasEven = numbers.stream().anyMatch(n -> n % 2 == 0);
         boolean allPositive = numbers.stream().allMatch(n -> n > 0);
-        boolean noneNegative = numbers.stream().noneMatch(n -> n < 0);
         
-        System.out.println("Has even number: " + hasEven);
-        System.out.println("All positive: " + allPositive);
-        System.out.println("None negative: " + noneNegative);
-        
-        // count()
-        long evenCount = numbers.stream()
+        // Parallel processing
+        long evenCount = numbers.parallelStream()
                                .filter(n -> n % 2 == 0)
                                .count();
-        System.out.println("Count of even numbers: " + evenCount);
-    }
-    
-    public void collectingOperations() {
-        System.out.println("\n--- Collecting Operations ---");
         
-        List<Person> people = Arrays.asList(
-            new Person("Alice", 25, "Engineering"),
-            new Person("Bob", 30, "Marketing"),
-            new Person("Charlie", 35, "Engineering"),
-            new Person("Diana", 28, "Sales"),
-            new Person("Eve", 32, "Engineering")
-        );
-        
-        // Collect to different collection types
-        Set<String> departments = people.stream()
-                                       .map(Person::getDepartment)
-                                       .collect(Collectors.toSet());
-        System.out.println("Departments: " + departments);
-        
-        // Group by department
-        Map<String, List<Person>> byDepartment = people.stream()
-                                                      .collect(Collectors.groupingBy(Person::getDepartment));
-        System.out.println("Grouped by department:");
-        byDepartment.forEach((dept, persons) -> {
-            System.out.println("  " + dept + ": " + 
-                persons.stream().map(Person::getName).collect(Collectors.joining(", ")));
-        });
-        
-        // Partition by condition
-        Map<Boolean, List<Person>> partitioned = people.stream()
-                                                      .collect(Collectors.partitioningBy(p -> p.getAge() >= 30));
-        System.out.println("30+ years old: " + 
-            partitioned.get(true).stream().map(Person::getName).collect(Collectors.joining(", ")));
-        System.out.println("Under 30: " + 
-            partitioned.get(false).stream().map(Person::getName).collect(Collectors.joining(", ")));
-        
-        // Collect statistics
-        IntSummaryStatistics ageStats = people.stream()
-                                            .collect(Collectors.summarizingInt(Person::getAge));
-        System.out.println("Age statistics: " + ageStats);
-        
-        // Custom collector
-        String namesList = people.stream()
-                                .map(Person::getName)
-                                .collect(Collectors.joining(", ", "[", "]"));
-        System.out.println("Names list: " + namesList);
-    }
-    
-    public void realWorldExamples() {
-        System.out.println("\n=== Real World Examples ===");
-        
+        // Real-world example: Processing products
         List<Product> products = Arrays.asList(
             new Product("Laptop", 999.99, "Electronics"),
-            new Product("Phone", 699.99, "Electronics"),
             new Product("Book", 29.99, "Education"),
-            new Product("Headphones", 199.99, "Electronics"),
-            new Product("Notebook", 5.99, "Education")
+            new Product("Phone", 699.99, "Electronics")
         );
         
-        // Find expensive products in Electronics category
-        System.out.println("Expensive Electronics (>500):");
+        // Find expensive electronics
         products.stream()
-                .filter(p -> "Electronics".equals(p.getCategory()))
-                .filter(p -> p.getPrice() > 500)
-                .sorted(Comparator.comparing(Product::getPrice).reversed())
-                .forEach(p -> System.out.println("  " + p.getName() + " - $" + p.getPrice()));
+                .filter(p -> p.category.equals("Electronics"))
+                .filter(p -> p.price > 500)
+                .forEach(p -> System.out.println(p.name + ": $" + p.price));
         
-        // Calculate total value by category
+        // Calculate total by category
         Map<String, Double> totalByCategory = products.stream()
-                                                    .collect(Collectors.groupingBy(
-                                                        Product::getCategory,
-                                                        Collectors.summingDouble(Product::getPrice)
-                                                    ));
-        System.out.println("\nTotal value by category:");
-        totalByCategory.forEach((category, total) -> 
-            System.out.println("  " + category + ": $" + total));
-        
-        // Find cheapest product in each category
-        Map<String, Optional<Product>> cheapestByCategory = products.stream()
-                                                                  .collect(Collectors.groupingBy(
-                                                                      Product::getCategory,
-                                                                      Collectors.minBy(Comparator.comparing(Product::getPrice))
-                                                                  ));
-        System.out.println("\nCheapest product by category:");
-        cheapestByCategory.forEach((category, product) -> 
-            product.ifPresent(p -> System.out.println("  " + category + ": " + p.getName() + " - $" + p.getPrice())));
+                .collect(Collectors.groupingBy(
+                    p -> p.category,
+                    Collectors.summingDouble(p -> p.price)
+                ));
     }
-}
-
-// Supporting classes
-class Person {
-    private String name;
-    private int age;
-    private String department;
-    
-    public Person(String name, int age, String department) {
-        this.name = name;
-        this.age = age;
-        this.department = department;
-    }
-    
-    // Getters
-    public String getName() { return name; }
-    public int getAge() { return age; }
-    public String getDepartment() { return department; }
 }
 
 class Product {
-    private String name;
-    private double price;
-    private String category;
+    String name;
+    double price;
+    String category;
     
-    public Product(String name, double price, String category) {
+    Product(String name, double price, String category) {
         this.name = name;
         this.price = price;
         this.category = category;
     }
-    
-    // Getters
-    public String getName() { return name; }
-    public double getPrice() { return price; }
-    public String getCategory() { return category; }
 }
 ```
 
@@ -529,11 +268,55 @@ anyMatch()  // Check if any match
 count()     // Count elements
 ```
 
-**Follow-up Questions:**
-- What's the difference between intermediate and terminal operations?
-- How do streams handle lazy evaluation?
-- When should you use parallel streams?
-- What are the performance considerations with streams?
+**Follow-up Questions & Short Answers:**
+
+**Q: What's the difference between intermediate and terminal operations?**
+- **Intermediate Operations**: Return `Stream` objects, are **lazy** (not executed until terminal operation)
+  - Examples: `filter()`, `map()`, `sorted()`, `distinct()`, `limit()`
+  - Can be chained: `stream.filter().map().sorted()`
+- **Terminal Operations**: Return **concrete results**, **trigger execution** of entire pipeline
+  - Examples: `collect()`, `forEach()`, `count()`, `findFirst()`, `reduce()`
+  - Only one per stream: `stream.filter().map().collect()`
+
+**Q: How do streams handle lazy evaluation?**
+- **Lazy Evaluation**: Stream operations are **not executed** until a terminal operation is called
+- **Pipeline Building**: Intermediate operations just build a pipeline of operations
+- **Execution**: Only when terminal operation runs does the entire pipeline execute
+- **Short-Circuiting**: Stream stops processing when result is achieved (with `limit()`, `findFirst()`, etc.)
+```java
+Stream<Integer> pipeline = numbers.stream()
+    .filter(n -> n > 5)    // Not executed yet
+    .map(n -> n * 2);      // Not executed yet
+// Nothing happens until terminal operation:
+List<Integer> result = pipeline.collect(Collectors.toList()); // NOW it executes
+```
+
+**Q: When should you use parallel streams?**
+- ✅ **Use parallel streams when**:
+  - Large datasets (>1000+ elements)
+  - CPU-intensive operations (complex calculations)
+  - Independent operations (no shared state)
+  - Multi-core system available
+- ❌ **Avoid parallel streams when**:
+  - Small datasets (<1000 elements)
+  - I/O bound operations (file/network access)
+  - Operations have side effects or shared state
+  - Simple operations (overhead > benefit)
+
+**Q: What are the performance considerations with streams?**
+- **Overhead**: Stream creation has small overhead vs simple loops
+- **Boxing/Unboxing**: Use `IntStream`, `LongStream`, `DoubleStream` for primitives
+- **Memory**: Streams don't store data, but some operations (sorted, distinct) may buffer
+- **Short-circuiting**: Use `limit()`, `findFirst()` for early termination
+- **Parallel overhead**: Parallel streams have thread management cost
+```java
+// Good for performance
+numbers.stream().mapToInt(n -> n).sum();        // Use IntStream
+numbers.stream().filter(n -> n > 5).findFirst(); // Short-circuit
+
+// Less optimal  
+numbers.stream().map(n -> n).reduce(0, Integer::sum); // Boxing overhead
+```
 
 **Key Points to Remember:**
 - **Lazy Evaluation**: Intermediate operations are not executed until terminal operation
@@ -558,328 +341,269 @@ count()     // Count elements
 import java.util.*;
 
 public class OptionalDemo {
-    
     public static void main(String[] args) {
-        System.out.println("=== Optional Class Demo ===");
-        
-        OptionalDemo demo = new OptionalDemo();
-        demo.basicOptionalUsage();
-        demo.creatingOptionals();
-        demo.optionalMethods();
-        demo.avoidingNullPointer();
-        demo.realWorldExamples();
-    }
-    
-    public void basicOptionalUsage() {
-        System.out.println("\n--- Basic Optional Usage ---");
-        
-        // Traditional null checking (error-prone)
-        String name = getName(true);
-        if (name != null) {
-            System.out.println("Traditional: Hello, " + name.toUpperCase());
-        } else {
-            System.out.println("Traditional: Name is null");
-        }
-        
-        // Optional way (safer)
-        Optional<String> optionalName = getOptionalName(true);
-        optionalName.ifPresent(n -> System.out.println("Optional: Hello, " + n.toUpperCase()));
-        
-        if (!optionalName.isPresent()) {
-            System.out.println("Optional: Name is not present");
-        }
-        
-        // Even better - functional style
-        getOptionalName(false)
-            .map(String::toUpperCase)
-            .ifPresentOrElse(
-                n -> System.out.println("Functional: Hello, " + n),
-                () -> System.out.println("Functional: Name not available")
-            );
-    }
-    
-    public void creatingOptionals() {
-        System.out.println("\n--- Creating Optional Objects ---");
-        
-        // 1. Optional.empty() - empty optional
+        // Creating Optional objects
         Optional<String> empty = Optional.empty();
-        System.out.println("Empty optional present: " + empty.isPresent());
+        Optional<String> value = Optional.of("Hello");
+        Optional<String> nullable = Optional.ofNullable(null);
         
-        // 2. Optional.of() - non-null value (throws if null)
-        Optional<String> nonNull = Optional.of("Hello World");
-        System.out.println("Non-null optional: " + nonNull.get());
+        // Checking presence
+        System.out.println("Has value: " + value.isPresent());
+        System.out.println("Is empty: " + empty.isEmpty());
         
-        // 3. Optional.ofNullable() - might be null
-        String nullableValue = null;
-        Optional<String> nullable = Optional.ofNullable(nullableValue);
-        System.out.println("Nullable optional present: " + nullable.isPresent());
+        // Getting values safely
+        String result1 = value.orElse("Default");              // Direct default
+        String result2 = empty.orElseGet(() -> "Generated");   // Lazy default
         
-        Optional<String> withValue = Optional.ofNullable("Not null");
-        System.out.println("With value optional: " + withValue.get());
-    }
-    
-    public void optionalMethods() {
-        System.out.println("\n--- Optional Methods ---");
+        // Conditional execution
+        value.ifPresent(v -> System.out.println("Value: " + v));
         
-        Optional<String> presentValue = Optional.of("Java");
-        Optional<String> emptyValue = Optional.empty();
-        
-        // isPresent() and isEmpty()
-        System.out.println("Present value exists: " + presentValue.isPresent());
-        System.out.println("Empty value exists: " + emptyValue.isPresent());
-        System.out.println("Empty value is empty: " + emptyValue.isEmpty());
-        
-        // get() - use carefully, can throw exception
-        try {
-            System.out.println("Present value get(): " + presentValue.get());
-            // System.out.println("Empty value get(): " + emptyValue.get()); // Would throw exception
-        } catch (NoSuchElementException e) {
-            System.out.println("Exception: " + e.getMessage());
-        }
-        
-        // orElse() - provide default value
-        String value1 = presentValue.orElse("Default");
-        String value2 = emptyValue.orElse("Default");
-        System.out.println("Present or else: " + value1);
-        System.out.println("Empty or else: " + value2);
-        
-        // orElseGet() - provide default via supplier
-        String value3 = emptyValue.orElseGet(() -> "Generated Default: " + System.currentTimeMillis());
-        System.out.println("Empty or else get: " + value3);
-        
-        // orElseThrow() - throw custom exception
-        try {
-            String value4 = emptyValue.orElseThrow(() -> new RuntimeException("Value not present"));
-        } catch (RuntimeException e) {
-            System.out.println("Custom exception: " + e.getMessage());
-        }
-        
-        // ifPresent() - execute if value exists
-        presentValue.ifPresent(val -> System.out.println("If present: " + val));
-        emptyValue.ifPresent(val -> System.out.println("This won't print"));
-        
-        // ifPresentOrElse() - Java 9+
-        presentValue.ifPresentOrElse(
-            val -> System.out.println("Value exists: " + val),
-            () -> System.out.println("Value missing")
+        empty.ifPresentOrElse(
+            v -> System.out.println("Found: " + v),
+            () -> System.out.println("Not found")
         );
-    }
-    
-    public void avoidingNullPointer() {
-        System.out.println("\n--- Avoiding NullPointerException ---");
         
-        // BAD: Traditional way with null checks
-        demonstrateTraditionalNullHandling();
-        
-        // GOOD: Optional way
-        demonstrateOptionalNullHandling();
-    }
-    
-    private void demonstrateTraditionalNullHandling() {
-        System.out.println("Traditional null handling:");
-        
-        User user = getUser(1);
-        
-        // Nested null checks (pyramid of doom)
-        if (user != null) {
-            Address address = user.getAddress();
-            if (address != null) {
-                String city = address.getCity();
-                if (city != null) {
-                    System.out.println("City: " + city.toUpperCase());
-                } else {
-                    System.out.println("City is null");
-                }
-            } else {
-                System.out.println("Address is null");
-            }
-        } else {
-            System.out.println("User is null");
-        }
-    }
-    
-    private void demonstrateOptionalNullHandling() {
-        System.out.println("Optional null handling:");
-        
-        // Clean chaining without null checks
-        getOptionalUser(1)
-            .flatMap(User::getOptionalAddress)
-            .flatMap(Address::getOptionalCity)
+        // Transformation and chaining
+        Optional<String> transformed = value
+            .filter(v -> v.length() > 3)
             .map(String::toUpperCase)
+            .map(v -> "Processed: " + v);
+        
+        // Avoiding nested null checks
+        Optional<User> user = findUser(123);
+        String city = user
+            .flatMap(User::getAddress)
+            .flatMap(Address::getCity)
+            .orElse("Unknown");
+        
+        // Real-world example: Safe method chaining
+        processUserSafely(user);
+    }
+    
+    static void processUserSafely(Optional<User> userOpt) {
+        userOpt
+            .filter(u -> u.getAge() >= 18)
+            .flatMap(User::getEmail)
+            .filter(email -> email.contains("@"))
             .ifPresentOrElse(
-                city -> System.out.println("City: " + city),
-                () -> System.out.println("City not available")
+                email -> sendEmail(email),
+                () -> System.out.println("Cannot send email")
             );
-        
-        // Alternative with orElse
-        String city = getOptionalUser(1)
-            .flatMap(User::getOptionalAddress)
-            .flatMap(Address::getOptionalCity)
-            .orElse("Unknown City");
-        
-        System.out.println("City with default: " + city);
     }
     
-    public void realWorldExamples() {
-        System.out.println("\n=== Real World Examples ===");
-        
-        // Example 1: Database lookup
-        findUserById(123)
-            .ifPresentOrElse(
-                user -> System.out.println("Found user: " + user.getName()),
-                () -> System.out.println("User not found")
-            );
-        
-        // Example 2: Configuration values
-        String dbUrl = getConfigValue("database.url")
-            .orElse("jdbc:h2:mem:testdb");
-        System.out.println("Database URL: " + dbUrl);
-        
-        // Example 3: Processing collections
-        List<String> emails = Arrays.asList("john@email.com", null, "jane@email.com", "");
-        
-        emails.stream()
-              .map(this::validateEmail)
-              .filter(Optional::isPresent)
-              .map(Optional::get)
-              .forEach(email -> System.out.println("Valid email: " + email));
-        
-        // Example 4: Chaining optional operations
-        getUserPreferences(1)
-            .flatMap(prefs -> prefs.getTheme())
-            .map(theme -> theme.toUpperCase())
-            .filter(theme -> theme.startsWith("DARK"))
-            .ifPresent(theme -> System.out.println("Using dark theme: " + theme));
+    static Optional<User> findUser(int id) {
+        return id > 0 ? Optional.of(new User("John", 25)) : Optional.empty();
     }
     
-    // Helper methods
-    private String getName(boolean present) {
-        return present ? "Alice" : null;
-    }
-    
-    private Optional<String> getOptionalName(boolean present) {
-        return present ? Optional.of("Bob") : Optional.empty();
-    }
-    
-    private User getUser(int id) {
-        if (id == 1) {
-            return new User("John", new Address("New York"));
-        }
-        return null;
-    }
-    
-    private Optional<User> getOptionalUser(int id) {
-        if (id == 1) {
-            return Optional.of(new User("John", new Address("New York")));
-        }
-        return Optional.empty();
-    }
-    
-    private Optional<User> findUserById(int id) {
-        // Simulate database lookup
-        return id == 123 ? Optional.of(new User("Alice", null)) : Optional.empty();
-    }
-    
-    private Optional<String> getConfigValue(String key) {
-        // Simulate configuration lookup
-        Map<String, String> config = Map.of(
-            "app.name", "MyApp",
-            "app.version", "1.0"
-        );
-        return Optional.ofNullable(config.get(key));
-    }
-    
-    private Optional<String> validateEmail(String email) {
-        if (email != null && email.contains("@") && !email.trim().isEmpty()) {
-            return Optional.of(email);
-        }
-        return Optional.empty();
-    }
-    
-    private Optional<UserPreferences> getUserPreferences(int userId) {
-        return Optional.of(new UserPreferences("dark-mode"));
+    static void sendEmail(String email) {
+        System.out.println("Email sent to: " + email);
     }
 }
 
-// Supporting classes
 class User {
     private String name;
-    private Address address;
+    private int age;
     
-    public User(String name, Address address) {
+    public User(String name, int age) {
         this.name = name;
-        this.address = address;
+        this.age = age;
     }
     
-    public String getName() { return name; }
-    
-    public Address getAddress() { return address; }
-    
-    public Optional<Address> getOptionalAddress() {
-        return Optional.ofNullable(address);
+    public Optional<Address> getAddress() {
+        return Optional.ofNullable(new Address("New York"));
     }
+    
+    public Optional<String> getEmail() {
+        return Optional.of(name.toLowerCase() + "@email.com");
+    }
+    
+    public int getAge() { return age; }
 }
 
 class Address {
-    private String city;
+    private String cityName;
     
-    public Address(String city) {
-        this.city = city;
+    public Address(String cityName) {
+        this.cityName = cityName;
     }
     
-    public String getCity() { return city; }
-    
-    public Optional<String> getOptionalCity() {
-        return Optional.ofNullable(city);
-    }
-}
-
-class UserPreferences {
-    private String theme;
-    
-    public UserPreferences(String theme) {
-        this.theme = theme;
-    }
-    
-    public Optional<String> getTheme() {
-        return Optional.ofNullable(theme);
+    public Optional<String> getCity() {
+        return Optional.ofNullable(cityName);
     }
 }
 ```
 
 **Optional Best Practices:**
 ```java
-// DO - Use Optional as return type for methods that might not return a value
-public Optional<User> findUserById(int id) { ... }
+// ✅ DO - Use Optional as return type for methods that might not return a value
+public Optional<User> findUserById(int id) { 
+    return id > 0 ? Optional.of(new User("John", 25)) : Optional.empty();
+}
 
-// DON'T - Use Optional as parameter type
+// ❌ DON'T - Use Optional as parameter type (makes API confusing)
 // public void processUser(Optional<User> user) { ... } // Avoid this
 
-// DO - Use map/flatMap for transformations
-optional.map(String::toUpperCase)
+// ✅ DO - Use map/flatMap for transformations
+Optional<String> result = optional
+    .filter(s -> s.length() > 3)
+    .map(String::toUpperCase)
+    .map(s -> "Processed: " + s);
 
-// DON'T - Use get() without checking
-// String value = optional.get(); // Can throw exception
+// ❌ DON'T - Use get() without checking (can throw NoSuchElementException)
+// String value = optional.get(); // Dangerous!
 
-// DO - Use orElse/orElseGet for defaults
-String value = optional.orElse("default");
+// ✅ DO - Use orElse/orElseGet for defaults
+String value1 = optional.orElse("default");                    // Immediate value
+String value2 = optional.orElseGet(() -> expensiveCalculation()); // Lazy evaluation
+
+// ✅ DO - Chain operations safely
+user.flatMap(User::getAddress)
+    .flatMap(Address::getCity)
+    .filter(city -> city.length() > 0)
+    .ifPresentOrElse(
+        city -> System.out.println("City: " + city),
+        () -> System.out.println("No city available")
+    );
 ```
 
-**Follow-up Questions:**
-- When should you use Optional vs returning null?
-- What's the difference between orElse() and orElseGet()?
-- How does Optional.flatMap() work compared to Optional.map()?
-- What are the performance implications of using Optional?
+**Traditional vs Optional Approach:**
+```java
+// ❌ Traditional approach - Nested null checks (pyramid of doom)
+public String getUserCityTraditional(User user) {
+    if (user != null) {
+        Address address = user.getAddress();
+        if (address != null) {
+            String city = address.getCity();
+            if (city != null && !city.isEmpty()) {
+                return city.toUpperCase();
+            }
+        }
+    }
+    return "UNKNOWN";
+}
 
+// ✅ Optional approach - Clean and readable
+public String getUserCityOptional(Optional<User> userOpt) {
+    return userOpt
+        .flatMap(User::getAddress)
+        .flatMap(Address::getCity)
+        .filter(city -> !city.isEmpty())
+        .map(String::toUpperCase)
+        .orElse("UNKNOWN");
+}
+**Follow-up Questions & Short Answers:**
+
+**Q: When should you use Optional vs returning null?**
+- ✅ **Use Optional when**: Method might legitimately not return a value (search operations, configuration lookups)
+- ✅ **Return null when**: Working with legacy code, performance-critical sections, collections (use empty collection instead)
+- **Rule**: If absence of value is a valid business case, use Optional
+
+**Q: What's the difference between orElse() and orElseGet()?**
+- **orElse(value)**: Always evaluates the default value, even if Optional has a value
+- **orElseGet(supplier)**: Only evaluates supplier if Optional is empty (lazy evaluation)
+- **Performance**: Use orElseGet() when default value computation is expensive
+
+```java
+// orElse - always executes expensiveCalculation()
+String result1 = optional.orElse(expensiveCalculation());
+
+// orElseGet - only executes if optional is empty
+String result2 = optional.orElseGet(() -> expensiveCalculation());
+```
+
+**Q: How does Optional.flatMap() work compared to Optional.map()?**
+- **map()**: Transforms the value inside Optional, wraps result in Optional
+- **flatMap()**: Used when transformation returns Optional, prevents Optional<Optional<T>>
+- **Use case**: Chain optional-returning methods without nested Optionals
+
+```java
+// map - for regular transformations
+optional.map(String::toUpperCase)  // Optional<String> -> Optional<String>
+
+// flatMap - for Optional-returning transformations  
+user.flatMap(User::getAddress)     // Optional<User> -> Optional<Address>
+    .flatMap(Address::getCity)     // Optional<Address> -> Optional<String>
+```
+**Follow-up Questions & Short Answers:**
+
+**Q: When should you use Optional vs returning null?**
+- ✅ **Use Optional when**: Method might legitimately not return a value (search operations, configuration lookups)
+- ✅ **Return null when**: Working with legacy code, performance-critical sections, collections (use empty collection instead)
+- **Rule**: If absence of value is a valid business case, use Optional
+
+**Q: What's the difference between orElse() and orElseGet()?**
+- **orElse(value)**: Always evaluates the default value, even if Optional has a value
+- **orElseGet(supplier)**: Only evaluates supplier if Optional is empty (lazy evaluation)
+- **Performance**: Use orElseGet() when default value computation is expensive
+
+```java
+// orElse - always executes expensiveCalculation()
+String result1 = optional.orElse(expensiveCalculation());
+
+// orElseGet - only executes if optional is empty
+String result2 = optional.orElseGet(() -> expensiveCalculation());
+```
+
+**Q: How does Optional.flatMap() work compared to Optional.map()?**
+- **map()**: Transforms the value inside Optional, wraps result in Optional
+- **flatMap()**: Used when transformation returns Optional, prevents Optional<Optional<T>>
+- **Use case**: Chain optional-returning methods without nested Optionals
+
+```java
+// map - for regular transformations
+optional.map(String::toUpperCase)  // Optional<String> -> Optional<String>
+
+// flatMap - for Optional-returning transformations  
+user.flatMap(User::getAddress)     // Optional<User> -> Optional<Address>
+    .flatMap(Address::getCity)     // Optional<Address> -> Optional<String>
+```
+
+**Q: What are the performance implications of using Optional?**
+- **Memory**: Small overhead (~16 bytes per Optional object)
+- **GC Impact**: More objects to collect, but usually negligible
+- **CPU**: Minimal overhead for method calls
+- **Best Practice**: Don't use Optional in performance-critical loops, prefer for API boundaries
+
+**Real-world Optional Usage Patterns:**
+```java
+// 1. Database/Repository pattern
+public Optional<User> findById(Long id) {
+    User user = database.find(id);
+    return Optional.ofNullable(user);
+}
+
+// 2. Configuration/Properties
+public Optional<String> getConfigValue(String key) {
+    return Optional.ofNullable(properties.getProperty(key));
+}
+
+// 3. Parsing/Conversion operations
+public Optional<Integer> parseInteger(String str) {
+    try {
+        return Optional.of(Integer.parseInt(str));
+    } catch (NumberFormatException e) {
+        return Optional.empty();
+    }
+}
+
+// 4. Chain multiple optional operations
+public Optional<String> processUser(Long userId) {
+    return findById(userId)
+        .filter(user -> user.isActive())
+        .flatMap(user -> user.getEmail())
+        .filter(email -> email.contains("@"))
+        .map(email -> "Processed: " + email);
+}
+```
 **Key Points to Remember:**
-- **Purpose**: Represents optional values, prevents NPE
-- **Creation**: `empty()`, `of()`, `ofNullable()`
-- **Checking**: `isPresent()`, `isEmpty()`
-- **Retrieval**: `get()`, `orElse()`, `orElseGet()`, `orElseThrow()`
-- **Functional**: `map()`, `flatMap()`, `filter()`
-- **Actions**: `ifPresent()`, `ifPresentOrElse()`
-- **Best Practice**: Use as return type, not parameter type
-- **Performance**: Small overhead, but worth it for null safety
+- **Purpose**: Represents optional values, prevents NullPointerException
+- **Creation**: `empty()`, `of()` (throws if null), `ofNullable()` (null-safe)
+- **Checking**: `isPresent()`, `isEmpty()` (Java 11+)
+- **Safe Retrieval**: `orElse()`, `orElseGet()`, `orElseThrow()`
+- **Transformations**: `map()`, `flatMap()`, `filter()`
+- **Actions**: `ifPresent()`, `ifPresentOrElse()` (Java 9+)
+- **Best Practice**: Use as return type, avoid as parameter type
+- **Performance**: Small overhead, worth it for null safety and code clarity
 
 ---
 
@@ -896,382 +620,224 @@ import java.util.concurrent.*;
 import java.util.*;
 
 public class CompletableFutureDemo {
-    
     public static void main(String[] args) {
-        System.out.println("=== CompletableFuture Demo ===");
+        // Basic creation
+        CompletableFuture<String> completed = CompletableFuture.completedFuture("Done");
+        CompletableFuture<Integer> async = CompletableFuture.supplyAsync(() -> 42);
+        CompletableFuture<Void> runAsync = CompletableFuture.runAsync(() -> 
+            System.out.println("Running async task"));
         
-        CompletableFutureDemo demo = new CompletableFutureDemo();
-        demo.basicCompletableFuture();
-        demo.chainingOperations();
-        demo.combiningFutures();
-        demo.errorHandling();
-        demo.realWorldExamples();
-    }
-    
-    public void basicCompletableFuture() {
-        System.out.println("\n--- Basic CompletableFuture ---");
+        // Chaining operations
+        CompletableFuture<String> chained = CompletableFuture
+            .supplyAsync(() -> "input")
+            .thenApply(String::toUpperCase)
+            .thenApply(s -> "Processed: " + s)
+            .thenCompose(s -> CompletableFuture.supplyAsync(() -> s + "_FINAL"));
         
-        // 1. Create completed future with value
-        CompletableFuture<String> completedFuture = CompletableFuture.completedFuture("Hello World");
-        System.out.println("Completed future: " + completedFuture.join());
+        System.out.println("Chained result: " + chained.join());
         
-        // 2. Run asynchronous task
-        CompletableFuture<Void> asyncTask = CompletableFuture.runAsync(() -> {
-            System.out.println("Running in thread: " + Thread.currentThread().getName());
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            System.out.println("Async task completed");
-        });
+        // Combining multiple futures
+        CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> "Hello");
+        CompletableFuture<String> future2 = CompletableFuture.supplyAsync(() -> "World");
         
-        // Wait for completion
-        asyncTask.join();
+        CompletableFuture<String> combined = future1.thenCombine(future2, 
+            (a, b) -> a + " " + b);
         
-        // 3. Supply value asynchronously
-        CompletableFuture<Integer> supplyAsync = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Calculating result...");
-            return 42;
-        });
+        // Wait for all to complete
+        CompletableFuture<Void> allOf = CompletableFuture.allOf(future1, future2, async);
+        allOf.thenRun(() -> System.out.println("All tasks completed"));
         
-        System.out.println("Async result: " + supplyAsync.join());
-        
-        // 4. Create and complete manually
-        CompletableFuture<String> manualFuture = new CompletableFuture<>();
-        
-        // Complete in another thread
-        CompletableFuture.runAsync(() -> {
-            try {
-                Thread.sleep(500);
-                manualFuture.complete("Manually completed");
-            } catch (InterruptedException e) {
-                manualFuture.completeExceptionally(e);
-            }
-        });
-        
-        System.out.println("Manual future: " + manualFuture.join());
-    }
-    
-    public void chainingOperations() {
-        System.out.println("\n--- Chaining Operations ---");
-        
-        CompletableFuture<String> result = CompletableFuture
+        // Error handling
+        CompletableFuture<String> withError = CompletableFuture
             .supplyAsync(() -> {
-                System.out.println("Step 1: Getting user input");
-                return "john.doe";
-            })
-            .thenApply(username -> {
-                System.out.println("Step 2: Processing username: " + username);
-                return username.toUpperCase();
-            })
-            .thenApply(upper -> {
-                System.out.println("Step 3: Adding prefix to: " + upper);
-                return "USER_" + upper;
-            })
-            .thenCompose(processed -> {
-                System.out.println("Step 4: Async validation for: " + processed);
-                return CompletableFuture.supplyAsync(() -> {
-                    // Simulate validation
-                    return processed + "_VALIDATED";
-                });
-            });
-        
-        System.out.println("Final result: " + result.join());
-        
-        // Demonstrate thenAccept and thenRun
-        CompletableFuture.supplyAsync(() -> "Processing data")
-                        .thenAccept(data -> System.out.println("Received: " + data))
-                        .thenRun(() -> System.out.println("Processing completed"))
-                        .join();
-    }
-    
-    public void combiningFutures() {
-        System.out.println("\n--- Combining Futures ---");
-        
-        // Create multiple independent futures
-        CompletableFuture<String> future1 = CompletableFuture.supplyAsync(() -> {
-            sleep(1000);
-            return "Result from Service 1";
-        });
-        
-        CompletableFuture<String> future2 = CompletableFuture.supplyAsync(() -> {
-            sleep(800);
-            return "Result from Service 2";
-        });
-        
-        CompletableFuture<Integer> future3 = CompletableFuture.supplyAsync(() -> {
-            sleep(1200);
-            return 42;
-        });
-        
-        // 1. Combine two futures with function
-        CompletableFuture<String> combined = future1.thenCombine(future2, (result1, result2) -> {
-            return "Combined: " + result1 + " + " + result2;
-        });
-        
-        System.out.println("Combined result: " + combined.join());
-        
-        // 2. Wait for all futures to complete
-        CompletableFuture<Void> allFutures = CompletableFuture.allOf(future1, future2, future3);
-        
-        allFutures.thenRun(() -> {
-            System.out.println("All futures completed");
-            try {
-                System.out.println("Future1: " + future1.get());
-                System.out.println("Future2: " + future2.get());
-                System.out.println("Future3: " + future3.get());
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }).join();
-        
-        // 3. Get result from first completing future
-        CompletableFuture<Object> anyOf = CompletableFuture.anyOf(
-            CompletableFuture.supplyAsync(() -> { sleep(500); return "Fast result"; }),
-            CompletableFuture.supplyAsync(() -> { sleep(1000); return "Slow result"; })
-        );
-        
-        System.out.println("First completed: " + anyOf.join());
-    }
-    
-    public void errorHandling() {
-        System.out.println("\n--- Error Handling ---");
-        
-        // 1. Handle exceptions with exceptionally()
-        CompletableFuture<String> futureWithException = CompletableFuture
-            .supplyAsync(() -> {
-                if (Math.random() > 0.5) {
-                    throw new RuntimeException("Random failure");
-                }
+                if (Math.random() > 0.5) throw new RuntimeException("Failed");
                 return "Success";
             })
-            .exceptionally(throwable -> {
-                System.out.println("Exception caught: " + throwable.getMessage());
-                return "Default value";
-            });
+            .exceptionally(ex -> "Default on error: " + ex.getMessage())
+            .handle((result, ex) -> ex != null ? "Handled error" : result);
         
-        System.out.println("Result with exception handling: " + futureWithException.join());
-        
-        // 2. Handle both success and failure with handle()
-        CompletableFuture<String> handledFuture = CompletableFuture
+        // Timeout handling (Java 9+)
+        CompletableFuture<String> withTimeout = CompletableFuture
             .supplyAsync(() -> {
-                throw new RuntimeException("Simulated error");
-            })
-            .handle((result, throwable) -> {
-                if (throwable != null) {
-                    return "Error occurred: " + throwable.getMessage();
-                }
-                return "Success: " + result;
-            });
-        
-        System.out.println("Handled result: " + handledFuture.join());
-        
-        // 3. Conditional error handling with whenComplete()
-        CompletableFuture<String> completeFuture = CompletableFuture
-            .supplyAsync(() -> "Processing...")
-            .whenComplete((result, throwable) -> {
-                if (throwable != null) {
-                    System.out.println("Operation failed: " + throwable.getMessage());
-                } else {
-                    System.out.println("Operation succeeded: " + result);
-                }
-            });
-        
-        completeFuture.join();
-        
-        // 4. Timeout handling
-        CompletableFuture<String> timeoutFuture = CompletableFuture
-            .supplyAsync(() -> {
-                sleep(2000); // Long running task
+                sleep(2000);  // Simulate long operation
                 return "Completed";
             })
             .orTimeout(1, TimeUnit.SECONDS)
-            .exceptionally(throwable -> {
-                if (throwable instanceof TimeoutException) {
-                    return "Operation timed out";
-                }
-                return "Error: " + throwable.getMessage();
-            });
+            .exceptionally(ex -> "Timed out");
         
-        System.out.println("Timeout result: " + timeoutFuture.join());
+        // Real-world example: Parallel API calls
+        fetchDataParallel();
     }
     
-    public void realWorldExamples() {
-        System.out.println("\n=== Real World Examples ===");
-        
-        // Example 1: Fetch data from multiple APIs
-        fetchUserProfile(123);
-        
-        // Example 2: Parallel processing with aggregation
-        calculateOrderTotal();
-        
-        // Example 3: Retry mechanism
-        performRetriableOperation();
-    }
-    
-    private void fetchUserProfile(int userId) {
-        System.out.println("\n1. Fetching User Profile:");
-        
+    static void fetchDataParallel() {
         CompletableFuture<User> userFuture = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Fetching user data...");
-            sleep(500);
-            return new User(userId, "John Doe");
+            sleep(300);
+            return new User("John", "john@email.com");
         });
         
         CompletableFuture<List<String>> preferencesFuture = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Fetching preferences...");
-            sleep(300);
-            return Arrays.asList("Dark Theme", "Email Notifications");
+            sleep(200);
+            return Arrays.asList("Dark Mode", "Notifications");
         });
         
         CompletableFuture<Integer> scoreFuture = CompletableFuture.supplyAsync(() -> {
-            System.out.println("Calculating user score...");
-            sleep(700);
-            return 850;
+            sleep(400);
+            return 85;
         });
         
-        // Combine all data
-        CompletableFuture<UserProfile> profileFuture = userFuture
-            .thenCombine(preferencesFuture, (user, prefs) -> new UserProfile(user, prefs))
-            .thenCombine(scoreFuture, (profile, score) -> {
-                profile.setScore(score);
-                return profile;
-            });
+        // Combine all results
+        CompletableFuture<String> result = userFuture
+            .thenCombine(preferencesFuture, (user, prefs) -> 
+                user.name + " preferences: " + String.join(", ", prefs))
+            .thenCombine(scoreFuture, (combined, score) -> 
+                combined + " Score: " + score);
         
-        UserProfile profile = profileFuture.join();
-        System.out.println("User Profile: " + profile);
+        System.out.println("Combined result: " + result.join());
     }
     
-    private void calculateOrderTotal() {
-        System.out.println("\n2. Calculate Order Total:");
-        
-        List<Integer> orderItems = Arrays.asList(1, 2, 3, 4, 5);
-        
-        // Process items in parallel
-        CompletableFuture<Double> totalFuture = orderItems.stream()
-            .map(itemId -> CompletableFuture.supplyAsync(() -> {
-                // Simulate fetching item price
-                sleep(200);
-                return itemId * 10.0; // Simple price calculation
-            }))
-            .collect(
-                () -> CompletableFuture.completedFuture(0.0),
-                (acc, future) -> acc.thenCombine(future, Double::sum),
-                (f1, f2) -> f1.thenCombine(f2, Double::sum)
-            );
-        
-        System.out.println("Order total: $" + totalFuture.join());
-    }
-    
-    private void performRetriableOperation() {
-        System.out.println("\n3. Retriable Operation:");
-        
-        CompletableFuture<String> result = retryAsync(() -> {
-            if (Math.random() > 0.7) { // 30% success rate
-                return "Operation successful";
-            }
-            throw new RuntimeException("Operation failed");
-        }, 3);
-        
-        System.out.println("Retry result: " + result.join());
-    }
-    
-    private CompletableFuture<String> retryAsync(Supplier<String> operation, int maxRetries) {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        
-        CompletableFuture.runAsync(() -> {
-            for (int attempt = 1; attempt <= maxRetries; attempt++) {
-                try {
-                    String result = operation.get();
-                    future.complete(result);
-                    return;
-                } catch (Exception e) {
-                    System.out.println("Attempt " + attempt + " failed: " + e.getMessage());
-                    if (attempt == maxRetries) {
-                        future.completeExceptionally(new RuntimeException("Max retries exceeded"));
-                    } else {
-                        sleep(1000 * attempt); // Exponential backoff
-                    }
-                }
-            }
-        });
-        
-        return future;
-    }
-    
-    private void sleep(int millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+    static void sleep(int millis) {
+        try { Thread.sleep(millis); } catch (InterruptedException e) { 
+            Thread.currentThread().interrupt(); 
         }
     }
 }
 
-// Supporting classes
 class User {
-    private int id;
-    private String name;
-    
-    public User(int id, String name) {
-        this.id = id;
-        this.name = name;
-    }
-    
-    public int getId() { return id; }
-    public String getName() { return name; }
-}
-
-class UserProfile {
-    private User user;
-    private List<String> preferences;
-    private int score;
-    
-    public UserProfile(User user, List<String> preferences) {
-        this.user = user;
-        this.preferences = preferences;
-    }
-    
-    public void setScore(int score) { this.score = score; }
-    
-    @Override
-    public String toString() {
-        return String.format("UserProfile{user=%s, preferences=%s, score=%d}", 
-                           user.getName(), preferences, score);
+    String name, email;
+    public User(String name, String email) { 
+        this.name = name; 
+        this.email = email; 
     }
 }
 ```
 
 **CompletableFuture Key Methods:**
 ```java
-// Creation
-CompletableFuture.completedFuture(value)
-CompletableFuture.supplyAsync(() -> value)
-CompletableFuture.runAsync(() -> {})
+// Creation Methods
+CompletableFuture.completedFuture(value)          // Already completed future
+CompletableFuture.supplyAsync(() -> value)        // Async supplier with result
+CompletableFuture.runAsync(() -> {})              // Async task without result
 
-// Transformation
-.thenApply(Function)      // Transform result
-.thenCompose(Function)    // Chain another CompletableFuture
-.thenAccept(Consumer)     // Process result, return void
-.thenRun(Runnable)       // Run action after completion
+// Transformation Methods (return new CompletableFuture)
+.thenApply(Function)          // Transform result: T -> U
+.thenCompose(Function)        // Chain futures: T -> CompletableFuture<U>
+.thenAccept(Consumer)         // Consume result: T -> void
+.thenRun(Runnable)           // Run after completion: void -> void
 
-// Combination
-.thenCombine(other, BiFunction)  // Combine two results
-.allOf(futures...)               // Wait for all
-.anyOf(futures...)               // Wait for first
+// Combination Methods
+.thenCombine(other, BiFunction)     // Combine two futures: (T,U) -> V
+.allOf(futures...)                  // Wait for all futures to complete
+.anyOf(futures...)                  // Wait for first future to complete
 
-// Error Handling
-.exceptionally(Function)          // Handle exception
-.handle(BiFunction)              // Handle both success/failure
-.whenComplete(BiConsumer)        // Peek at result/exception
+// Error Handling Methods
+.exceptionally(Function)            // Handle exceptions: Throwable -> T
+.handle(BiFunction)                 // Handle both success/failure: (T,Throwable) -> U
+.whenComplete(BiConsumer)           // Peek at result/exception: (T,Throwable) -> void
+
+// Completion Methods
+.join()                             // Block and get result (unchecked exceptions)
+.get()                              // Block and get result (checked exceptions)
+.orTimeout(duration, unit)          // Timeout after specified duration
 ```
 
-**Follow-up Questions:**
-- What's the difference between thenApply() and thenCompose()?
-- How do you handle exceptions in CompletableFuture chains?
-- When should you use CompletableFuture vs Thread/ExecutorService?
-- What are the performance considerations with async programming?
+**Advanced CompletableFuture Patterns:**
+```java
+// 1. Retry mechanism with exponential backoff
+public CompletableFuture<String> retryOperation(Supplier<String> operation, int maxAttempts) {
+    return CompletableFuture.supplyAsync(() -> {
+        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
+            try {
+                return operation.get();
+            } catch (Exception e) {
+                if (attempt == maxAttempts) throw new RuntimeException("Max attempts exceeded", e);
+                
+                try {
+                    Thread.sleep(1000 * (long) Math.pow(2, attempt - 1)); // Exponential backoff
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted during retry", ie);
+                }
+            }
+        }
+        throw new RuntimeException("Should never reach here");
+    });
+}
+
+// 2. Circuit breaker pattern
+public CompletableFuture<String> callWithCircuitBreaker(Supplier<String> operation) {
+    return CompletableFuture
+        .supplyAsync(operation)
+        .orTimeout(5, TimeUnit.SECONDS)
+        .exceptionally(throwable -> {
+            if (throwable instanceof TimeoutException) {
+                return "Service temporarily unavailable";
+            }
+            return "Default response due to: " + throwable.getMessage();
+        });
+}
+
+// 3. Parallel processing with result aggregation
+public CompletableFuture<String> aggregateResults(List<String> inputs) {
+    List<CompletableFuture<String>> futures = inputs.stream()
+        .map(input -> CompletableFuture.supplyAsync(() -> processInput(input)))
+        .collect(Collectors.toList());
+    
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        .thenApply(v -> futures.stream()
+            .map(CompletableFuture::join)
+            .collect(Collectors.joining(", ")));
+}
+
+private String processInput(String input) {
+    // Simulate processing time
+    try { Thread.sleep(100); } catch (InterruptedException e) { 
+        Thread.currentThread().interrupt(); 
+    }
+    return "Processed: " + input;
+}
+```
+
+**Follow-up Questions & Short Answers:**
+
+**Q: What's the difference between thenApply() and thenCompose()?**
+- **thenApply(T -> U)**: Transforms the result, returns CompletableFuture<U>
+- **thenCompose(T -> CompletableFuture<U>)**: Flattens nested futures, prevents CompletableFuture<CompletableFuture<U>>
+- **Use thenApply**: For simple transformations (like map in streams)
+- **Use thenCompose**: When transformation itself returns a CompletableFuture (like flatMap in streams)
+
+```java
+// thenApply - simple transformation
+future.thenApply(user -> user.getName())              // CompletableFuture<String>
+
+// thenCompose - async transformation  
+future.thenCompose(user -> fetchUserPreferences(user)) // CompletableFuture<Preferences>
+```
+
+**Q: How do you handle exceptions in CompletableFuture chains?**
+- **exceptionally()**: Handle exceptions, provide fallback value
+- **handle()**: Handle both success and failure cases
+- **whenComplete()**: Peek at result/exception without changing them
+- **Best practice**: Use specific exception handling, avoid generic catch-all
+
+```java
+future.exceptionally(ex -> {
+    if (ex instanceof TimeoutException) return "Timeout occurred";
+    if (ex instanceof SecurityException) return "Access denied";
+    return "Unknown error";
+});
+```
+
+**Q: When should you use CompletableFuture vs Thread/ExecutorService?**
+- **Use CompletableFuture when**: Need composition, chaining, functional style async programming
+- **Use Thread/ExecutorService when**: Simple task execution, more control over thread management
+- **CompletableFuture advantages**: Better composition, built-in error handling, functional API
+- **Thread advantages**: Lower overhead, more direct control
+
+**Q: What are the performance considerations with async programming?**
+- **Thread Pool**: CompletableFuture uses ForkJoinPool.commonPool() by default
+- **Context Switching**: Too many async operations can cause overhead
+- **Memory**: Each CompletableFuture has memory overhead (~48 bytes)
+- **Best Practice**: Use for I/O bound operations, not CPU-intensive tasks on single core
 
 **Key Points to Remember:**
 - **Asynchronous**: Non-blocking operations with callbacks
@@ -1296,431 +862,341 @@ Modern Java features like **Records** (immutable data carriers), **Pattern Match
 ```java
 import java.util.*;
 
-public class ModernJavaFeaturesDemo {
-    
+public class ModernJavaDemo {
     public static void main(String[] args) {
-        System.out.println("=== Modern Java Features Demo ===");
+        // 1. RECORDS - Immutable data carriers (Java 14+)
         
-        ModernJavaFeaturesDemo demo = new ModernJavaFeaturesDemo();
-        demo.recordExamples();
-        demo.patternMatchingExamples();
-        demo.textBlockExamples();
-        demo.switchExpressionsExamples();
-        demo.realWorldExamples();
-    }
-    
-    public void recordExamples() {
-        System.out.println("\n--- Records (Java 14+) ---");
+        // Simple record declaration
+        record Person(String name, int age, String email) {}
         
-        // Creating records
         Person person = new Person("Alice", 30, "alice@email.com");
-        System.out.println("Person: " + person);
+        System.out.println(person);  // Auto-generated toString
+        System.out.println("Name: " + person.name());  // Auto-generated accessor
         
-        // Records automatically provide equals, hashCode, toString
-        Person person2 = new Person("Alice", 30, "alice@email.com");
-        System.out.println("Persons equal: " + person.equals(person2));
-        System.out.println("Hash codes equal: " + (person.hashCode() == person2.hashCode()));
-        
-        // Accessing fields (automatically generated getters)
-        System.out.println("Name: " + person.name());
-        System.out.println("Age: " + person.age());
-        System.out.println("Email: " + person.email());
-        
-        // Records are immutable
-        // person.name = "Bob"; // Compilation error - no setters
-        
-        // Record with validation
-        try {
-            BankAccount account = new BankAccount("ACC123", 1000.0);
-            System.out.println("Account: " + account);
-            
-            // This will throw exception due to validation
-            BankAccount invalidAccount = new BankAccount("", -100.0);
-        } catch (IllegalArgumentException e) {
-            System.out.println("Validation error: " + e.getMessage());
+        // Record with validation (compact constructor)
+        record BankAccount(String accountNumber, double balance) {
+            public BankAccount {  // Compact constructor
+                if (balance < 0) throw new IllegalArgumentException("Negative balance");
+                if (accountNumber.isBlank()) throw new IllegalArgumentException("Empty account");
+            }
         }
         
-        // Compact constructor example
-        Point3D point = new Point3D(3, 4, 0);
-        System.out.println("3D Point: " + point);
-        System.out.println("Is 2D point: " + point.is2D());
-        
-        // Record with methods
-        Rectangle rect = new Rectangle(5, 10);
-        System.out.println("Rectangle: " + rect);
-        System.out.println("Area: " + rect.area());
-        System.out.println("Perimeter: " + rect.perimeter());
-    }
-    
-    public void patternMatchingExamples() {
-        System.out.println("\n--- Pattern Matching (Java 14+) ---");
-        
-        // Pattern matching with instanceof
-        Object[] objects = {"Hello", 42, 3.14, new Person("Bob", 25, "bob@email.com"), null};
-        
-        for (Object obj : objects) {
-            processObject(obj);
+        // Record with custom methods
+        record Point(int x, int y) {
+            public double distanceFromOrigin() {
+                return Math.sqrt(x * x + y * y);
+            }
         }
         
-        // Pattern matching with switch (Java 17+)
-        for (Object obj : objects) {
-            String result = switch (obj) {
-                case null -> "null value";
-                case String s -> "String: '" + s + "' (length: " + s.length() + ")";
-                case Integer i -> "Integer: " + i + " (even: " + (i % 2 == 0) + ")";
-                case Double d -> "Double: " + d + " (rounded: " + Math.round(d) + ")";
-                case Person p -> "Person: " + p.name() + " (" + p.age() + " years old)";
-                default -> "Unknown type: " + obj.getClass().getSimpleName();
-            };
-            System.out.println("Switch result: " + result);
-        }
+        // 2. PATTERN MATCHING - Type checking and casting (Java 14+)
         
-        // Guard conditions (Java 17+)
-        demonstrateGuardConditions();
-    }
-    
-    private void processObject(Object obj) {
+        Object obj = "Hello World";
+        
         // Old way
         if (obj instanceof String) {
             String s = (String) obj;
-            System.out.println("Old way - String length: " + s.length());
+            System.out.println("Length: " + s.length());
         }
         
         // New way with pattern matching
         if (obj instanceof String s) {
-            System.out.println("Pattern matching - String length: " + s.length());
-        } else if (obj instanceof Integer i && i > 0) {
-            System.out.println("Pattern matching - Positive integer: " + i);
-        } else if (obj instanceof Person p) {
-            System.out.println("Pattern matching - Person: " + p.name());
-        } else if (obj == null) {
-            System.out.println("Pattern matching - null object");
+            System.out.println("Length: " + s.length());
         }
-    }
-    
-    private void demonstrateGuardConditions() {
-        System.out.println("\nGuard Conditions:");
         
-        List<Object> values = Arrays.asList("short", "a very long string", 5, 100, -10);
+        // Pattern matching in switch (Java 17+)
+        Object[] values = {"text", 42, 3.14, null};
         
         for (Object value : values) {
-            String category = switch (value) {
-                case String s when s.length() < 6 -> "Short string: " + s;
-                case String s when s.length() >= 6 -> "Long string: " + s.substring(0, 6) + "...";
-                case Integer i when i > 50 -> "Large number: " + i;
-                case Integer i when i > 0 -> "Small positive: " + i;
-                case Integer i when i <= 0 -> "Non-positive: " + i;
-                default -> "Other: " + value;
+            String result = switch (value) {
+                case null -> "null value";
+                case String s -> "String of length " + s.length();
+                case Integer i -> "Integer: " + i;
+                case Double d -> "Double: " + d;
+                default -> "Unknown type";
             };
-            System.out.println(category);
+            System.out.println(result);
         }
-    }
-    
-    public void textBlockExamples() {
-        System.out.println("\n--- Text Blocks (Java 13+) ---");
         
-        // Old way - concatenation and escaping
-        String oldWayJson = "{\n" +
-                           "  \"name\": \"John\",\n" +
-                           "  \"age\": 30,\n" +
-                           "  \"address\": {\n" +
-                           "    \"street\": \"123 Main St\",\n" +
-                           "    \"city\": \"New York\"\n" +
-                           "  }\n" +
-                           "}";
+        // Guard conditions (Java 21+)
+        for (Object value : values) {
+            String category = switch (value) {
+                case String s when s.length() > 5 -> "Long string";
+                case String s -> "Short string"; 
+                case Integer i when i > 10 -> "Big number";
+                case Integer i -> "Small number";
+                default -> "Other";
+            };
+            System.out.println(value + " -> " + category);
+        }
         
-        // New way - text blocks
-        String newWayJson = """
-                {
-                  "name": "John",
-                  "age": 30,
-                  "address": {
-                    "street": "123 Main St",
-                    "city": "New York"
-                  }
-                }
-                """;
+        // 3. TEXT BLOCKS - Multi-line strings (Java 13+)
         
-        System.out.println("Old way JSON:");
-        System.out.println(oldWayJson);
-        System.out.println("\nNew way JSON:");
-        System.out.println(newWayJson);
+        // Old way with escape sequences
+        String oldJson = "{\n  \"name\": \"John\",\n  \"age\": 30\n}";
         
-        // SQL queries
-        String sqlQuery = """
-                SELECT p.name, p.email, a.street, a.city
-                FROM persons p
-                JOIN addresses a ON p.address_id = a.id
-                WHERE p.age >= 18
-                  AND a.country = 'USA'
-                ORDER BY p.name
-                """;
+        // New way with text blocks
+        String newJson = """
+            {
+              "name": "John", 
+              "age": 30
+            }
+            """;
         
-        System.out.println("SQL Query:");
-        System.out.println(sqlQuery);
+        // SQL with text blocks
+        String sql = """
+            SELECT u.name, u.email, p.title
+            FROM users u
+            JOIN posts p ON u.id = p.user_id
+            WHERE u.active = true
+            ORDER BY u.name
+            """;
         
-        // HTML templates
-        String htmlTemplate = """
-                <html>
-                  <head>
-                    <title>Welcome</title>
-                  </head>
-                  <body>
-                    <h1>Hello, %s!</h1>
-                    <p>Today is %s</p>
-                  </body>
-                </html>
-                """;
+        // HTML template with formatting
+        String html = """
+            <html>
+              <body>
+                <h1>Welcome, %s!</h1>
+                <p>You have %d new messages.</p>
+              </body>
+            </html>
+            """.formatted("Alice", 5);
         
-        String formattedHtml = htmlTemplate.formatted("Alice", "2024-01-15");
-        System.out.println("HTML Template:");
-        System.out.println(formattedHtml);
+        // 4. SWITCH EXPRESSIONS - Switch as expression (Java 14+)
         
-        // Text block processing methods
-        demonstrateTextBlockMethods();
-    }
-    
-    private void demonstrateTextBlockMethods() {
-        System.out.println("\nText Block Processing:");
-        
-        String textBlock = """
-                Line 1
-                    Line 2 (indented)
-                Line 3
-                """;
-        
-        System.out.println("Original:");
-        System.out.println("'" + textBlock + "'");
-        
-        // Remove incidental whitespace
-        String stripped = textBlock.stripIndent();
-        System.out.println("Strip indent:");
-        System.out.println("'" + stripped + "'");
-        
-        // Translate escape sequences
-        String withEscapes = """
-                Line 1\\n\\tTabbed line\\nLine 3
-                """;
-        String translated = withEscapes.translateEscapeSequences();
-        System.out.println("Translated escapes:");
-        System.out.println("'" + translated + "'");
-    }
-    
-    public void switchExpressionsExamples() {
-        System.out.println("\n--- Switch Expressions (Java 14+) ---");
+        String day = "MONDAY";
         
         // Old switch statement
-        String day = "MONDAY";
-        int oldWayResult;
+        int oldResult;
         switch (day) {
-            case "MONDAY":
-            case "TUESDAY":
-            case "WEDNESDAY":
-            case "THURSDAY":
-            case "FRIDAY":
-                oldWayResult = 1;
-                break;
-            case "SATURDAY":
-            case "SUNDAY":
-                oldWayResult = 2;
-                break;
-            default:
-                oldWayResult = 0;
+            case "MONDAY", "TUESDAY" -> oldResult = 1;
+            case "WEDNESDAY" -> oldResult = 2;
+            default -> oldResult = 0;
         }
-        System.out.println("Old way result: " + oldWayResult);
         
         // New switch expression
-        int newWayResult = switch (day) {
-            case "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY" -> 1;
-            case "SATURDAY", "SUNDAY" -> 2;
+        int newResult = switch (day) {
+            case "MONDAY", "TUESDAY" -> 1;
+            case "WEDNESDAY" -> 2;
             default -> 0;
         };
-        System.out.println("New way result: " + newWayResult);
         
-        // Switch with yield
+        // Switch with yield for complex logic
         String description = switch (day) {
             case "MONDAY" -> "Start of work week";
             case "FRIDAY" -> "End of work week";
             case "SATURDAY", "SUNDAY" -> {
-                String weekend = "Weekend day";
-                yield weekend.toUpperCase();
+                String weekend = "Weekend";
+                yield weekend + " day!";
             }
             default -> "Regular day";
         };
-        System.out.println("Description: " + description);
         
-        // Enum switch
-        demonstrateEnumSwitch();
+        // Real-world example: Processing different data types
+        processData();
     }
     
-    private void demonstrateEnumSwitch() {
-        System.out.println("\nEnum Switch:");
-        
-        for (Priority priority : Priority.values()) {
-            String action = switch (priority) {
-                case LOW -> "Handle when convenient";
-                case MEDIUM -> "Handle within a day";
-                case HIGH -> "Handle within hours";
-                case CRITICAL -> "Handle immediately!";
-            };
-            System.out.println(priority + ": " + action);
-        }
-    }
-    
-    public void realWorldExamples() {
-        System.out.println("\n=== Real World Examples ===");
-        
-        // Example 1: API Response using Records
-        demonstrateApiResponse();
-        
-        // Example 2: Configuration with Text Blocks
-        demonstrateConfiguration();
-        
-        // Example 3: Data processing with Pattern Matching
-        demonstrateDataProcessing();
-    }
-    
-    private void demonstrateApiResponse() {
-        System.out.println("\n1. API Response with Records:");
-        
-        ApiResponse<String> success = new ApiResponse<>(200, "OK", "Data retrieved successfully", "sample data");
-        ApiResponse<Void> error = new ApiResponse<>(404, "Not Found", "Resource not found", null);
-        
-        System.out.println("Success: " + success);
-        System.out.println("Error: " + error);
-        
-        // Processing responses
-        processApiResponse(success);
-        processApiResponse(error);
-    }
-    
-    private void processApiResponse(ApiResponse<?> response) {
-        String result = switch (response.status()) {
-            case 200 -> "Success: " + response.message();
-            case 404 -> "Not found: " + response.error();
-            case 500 -> "Server error: " + response.error();
-            default -> "Unknown status: " + response.status();
-        };
-        System.out.println("Processed: " + result);
-    }
-    
-    private void demonstrateConfiguration() {
-        System.out.println("\n2. Configuration with Text Blocks:");
-        
-        String configYaml = """
-                server:
-                  port: 8080
-                  host: localhost
-                
-                database:
-                  url: jdbc:postgresql://localhost:5432/mydb
-                  username: user
-                  password: password
-                  
-                logging:
-                  level: INFO
-                  file: /var/log/app.log
-                """;
-        
-        System.out.println("Configuration YAML:");
-        System.out.println(configYaml);
-    }
-    
-    private void demonstrateDataProcessing() {
-        System.out.println("\n3. Data Processing with Pattern Matching:");
-        
+    static void processData() {
         List<Object> data = Arrays.asList(
-            new Person("Alice", 30, "alice@email.com"),
-            "Configuration string",
-            42,
-            new BankAccount("ACC123", 1500.0),
-            3.14159
+            new Person("John", 25, "john@email.com"),
+            new BankAccount("ACC123", 1000.0),
+            "Simple string",
+            42
         );
         
         for (Object item : data) {
-            String processed = switch (item) {
-                case Person p when p.age() >= 18 -> 
-                    "Adult: " + p.name() + " (" + p.age() + ")";
-                case Person p -> 
-                    "Minor: " + p.name() + " (" + p.age() + ")";
-                case String s when s.startsWith("Config") -> 
-                    "Configuration: " + s;
-                case String s -> 
-                    "Text: " + s;
-                case Integer i when i > 0 -> 
-                    "Positive number: " + i;
-                case Double d when d > 3.0 -> 
-                    "Large decimal: " + String.format("%.2f", d);
-                case BankAccount acc when acc.balance() > 1000 -> 
-                    "High balance account: " + acc.accountNumber();
-                default -> 
-                    "Other data: " + item;
+            String info = switch (item) {
+                case Person p -> "Person: " + p.name() + " (" + p.age() + ")";
+                case BankAccount acc -> "Account: " + acc.accountNumber() + 
+                                      " Balance: $" + acc.balance();
+                case String s when s.length() > 10 -> "Long text: " + s.substring(0, 10) + "...";
+                case String s -> "Text: " + s;
+                case Integer i when i > 0 -> "Positive number: " + i;
+                case Integer i -> "Non-positive number: " + i;
+                default -> "Unknown data type";
             };
-            
-            System.out.println(processed);
+            System.out.println(info);
         }
     }
 }
 
-// Record definitions
-record Person(String name, int age, String email) {
-    // Compact constructor for validation
-    public Person {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("Name cannot be empty");
-        }
-        if (age < 0 || age > 150) {
-            throw new IllegalArgumentException("Age must be between 0 and 150");
-        }
-    }
-}
-
+// Records can be declared outside or inside classes
+record Person(String name, int age, String email) {}
 record BankAccount(String accountNumber, double balance) {
     public BankAccount {
-        if (accountNumber == null || accountNumber.trim().isEmpty()) {
-            throw new IllegalArgumentException("Account number cannot be empty");
-        }
-        if (balance < 0) {
-            throw new IllegalArgumentException("Balance cannot be negative");
-        }
+        if (balance < 0) throw new IllegalArgumentException("Negative balance");
     }
 }
+```
 
-record Point3D(int x, int y, int z) {
-    // Compact constructor for normalization
-    public Point3D {
-        // z = 0 for 2D points
-        if (z == 0) {
-            System.out.println("Creating 2D point");
-        }
+**Modern Java Features Detailed Explanation:**
+
+**1. Records (Java 14+) - Data Classes Made Simple**
+```java
+// Before Records - Verbose boilerplate
+public final class PersonOld {
+    private final String name;
+    private final int age;
+    
+    public PersonOld(String name, int age) {
+        this.name = Objects.requireNonNull(name);
+        this.age = age;
     }
     
-    // Additional methods
-    public boolean is2D() {
-        return z == 0;
+    public String name() { return name; }
+    public int age() { return age; }
+    
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof PersonOld)) return false;
+        PersonOld person = (PersonOld) obj;
+        return age == person.age && Objects.equals(name, person.name);
     }
     
-    public double distanceFromOrigin() {
-        return Math.sqrt(x * x + y * y + z * z);
-    }
-}
-
-record Rectangle(double width, double height) {
-    public double area() {
-        return width * height;
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, age);
     }
     
-    public double perimeter() {
-        return 2 * (width + height);
+    @Override
+    public String toString() {
+        return "PersonOld{name='" + name + "', age=" + age + "}";
     }
 }
 
-record ApiResponse<T>(int status, String error, String message, T data) {}
-
-// Enum for switch examples
-enum Priority {
-    LOW, MEDIUM, HIGH, CRITICAL
+// After Records - Concise and clear
+record PersonNew(String name, int age) {
+    // Compact constructor for validation
+    public PersonNew {
+        Objects.requireNonNull(name, "Name cannot be null");
+        if (age < 0) throw new IllegalArgumentException("Age cannot be negative");
+    }
+    
+    // Custom methods can be added
+    public boolean isAdult() {
+        return age >= 18;
+    }
+    
+    // Static factory methods
+    public static PersonNew of(String name, int age) {
+        return new PersonNew(name, age);
+    }
 }
+```
+
+**2. Pattern Matching Evolution**
+```java
+// Java 14: Pattern Matching for instanceof
+public String describeObject(Object obj) {
+    // Old way
+    if (obj instanceof String) {
+        String s = (String) obj;
+        return "String with length: " + s.length();
+    }
+    
+    // New way - no explicit casting needed
+    if (obj instanceof String s) {
+        return "String with length: " + s.length();
+    } else if (obj instanceof Integer i && i > 0) {
+        return "Positive integer: " + i;
+    } else if (obj instanceof List<?> list && !list.isEmpty()) {
+        return "Non-empty list with " + list.size() + " elements";
+    }
+    
+    return "Unknown type: " + obj.getClass().getSimpleName();
+}
+
+// Java 17+: Pattern Matching in Switch
+public String processValue(Object value) {
+    return switch (value) {
+        case null -> "Null value received";
+        case String s when s.isEmpty() -> "Empty string";
+        case String s when s.length() > 10 -> "Long string: " + s.substring(0, 10) + "...";
+        case String s -> "String: " + s;
+        case Integer i when i < 0 -> "Negative number: " + i;
+        case Integer i when i == 0 -> "Zero";
+        case Integer i -> "Positive number: " + i;
+        case List<?> list when list.isEmpty() -> "Empty list";
+        case List<?> list -> "List with " + list.size() + " elements";
+        default -> "Unhandled type: " + value.getClass().getSimpleName();
+    };
+}
+```
+
+**3. Text Blocks - Readable Multi-line Strings**
+```java
+public class TextBlockExamples {
+    // JSON with traditional strings (painful)
+    String jsonOld = "{\n" +
+                     "  \"name\": \"John Doe\",\n" +
+                     "  \"age\": 30,\n" +
+                     "  \"address\": {\n" +
+                     "    \"street\": \"123 Main St\",\n" +
+                     "    \"city\": \"Anytown\",\n" +
+                     "    \"zipCode\": \"12345\"\n" +
+                     "  },\n" +
+                     "  \"phoneNumbers\": [\"555-1234\", \"555-5678\"]\n" +
+                     "}";
+    
+    // JSON with text blocks (clean and readable)
+    String jsonNew = """
+        {
+          "name": "John Doe",
+          "age": 30,
+          "address": {
+            "street": "123 Main St",
+            "city": "Anytown", 
+            "zipCode": "12345"
+          },
+          "phoneNumbers": ["555-1234", "555-5678"]
+        }
+        """;
+    
+    // SQL queries become much more readable
+    String complexQuery = """
+        SELECT u.id, u.name, u.email, 
+               COUNT(o.id) as order_count,
+               SUM(o.total) as total_spent,
+               AVG(r.rating) as avg_rating
+        FROM users u
+        LEFT JOIN orders o ON u.id = o.user_id
+        LEFT JOIN reviews r ON u.id = r.user_id
+        WHERE u.created_date >= ?
+          AND u.status = 'ACTIVE'
+          AND (u.email LIKE '%@company.com' OR u.is_premium = true)
+        GROUP BY u.id, u.name, u.email
+        HAVING COUNT(o.id) > 5
+        ORDER BY total_spent DESC, u.name ASC
+        LIMIT 100
+        """;
+    
+    // HTML templates with parameters
+    public String generateEmailTemplate(String userName, int messageCount) {
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Notification</title>
+                <style>
+                    body { font-family: Arial, sans-serif; }
+                    .header { background-color: #f0f0f0; padding: 20px; }
+                    .content { padding: 20px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>Hello, %s!</h1>
+                </div>
+                <div class="content">
+                    <p>You have %d new messages waiting for you.</p>
+                    <p>Click <a href="/messages">here</a> to view them.</p>
+                </div>
+            </body>
+            </html>
+            """.formatted(userName, messageCount);
+    }
+}
+```
 ```
 
 **Modern Java Features Summary:**
@@ -1754,21 +1230,313 @@ public final class PersonClass {
 record PersonRecord(String name, int age) {}
 ```
 
-**Follow-up Questions:**
-- When should you use Records instead of regular classes?
-- How do Records work with inheritance and interfaces?
-- What are the limitations of Pattern Matching?
-- How do Text Blocks handle indentation and formatting?
+**Follow-up Questions & Short Answers:**
+
+**Q: When should you use Records instead of regular classes?**
+- ✅ **Use Records for**: Immutable data carriers, DTOs, API responses, configuration objects
+- ❌ **Don't use Records for**: Mutable state, inheritance hierarchies, complex business logic
+- **Rule**: If your class is mainly about holding data immutably, use Records
+
+**Q: How do Records work with inheritance and interfaces?**
+- **Inheritance**: Records cannot extend other classes (they extend java.lang.Record implicitly)
+- **Interfaces**: Records can implement interfaces normally
+- **Sealed Classes**: Records work well with sealed classes for ADT (Algebraic Data Types)
+
+```java
+public sealed interface Shape permits Circle, Rectangle, Triangle {}
+record Circle(double radius) implements Shape {}
+record Rectangle(double width, double height) implements Shape {}
+record Triangle(double base, double height) implements Shape {}
+```
+
+**Q: What are the limitations of Pattern Matching?**
+- **Java Version**: Full pattern matching requires Java 17+ (preview features)
+- **Performance**: Slightly slower than traditional if-else chains
+- **Complexity**: Guard conditions can make code harder to read if overused
+- **Null Safety**: Still need to handle null cases explicitly
+
+**Q: How do Text Blocks handle indentation and formatting?**
+- **Incidental Whitespace**: Automatically removes common leading whitespace
+- **Trailing Whitespace**: Preserved if needed
+- **Escape Sequences**: Can use `\s` for space, `\` for line continuation
+- **Processing Methods**: `.stripIndent()`, `.translateEscapeSequences()`
+
+```java
+String textBlock = """
+    Line 1
+        Indented line 2
+    Line 3
+    """;
+// Automatically normalizes indentation
+```
+
+**Modern Java Migration Strategy:**
+```java
+// Step 1: Start with Records for new data classes
+record UserDto(Long id, String name, String email) {}
+
+// Step 2: Use Optional for methods that might not return values
+public Optional<User> findById(Long id) { /* ... */ }
+
+// Step 3: Adopt Stream API for collection processing
+List<String> activeUserNames = users.stream()
+    .filter(User::isActive)
+    .map(User::getName)
+    .collect(Collectors.toList());
+
+// Step 4: Use CompletableFuture for async operations
+CompletableFuture<UserDto> userFuture = CompletableFuture
+    .supplyAsync(() -> fetchUser(id))
+    .thenApply(this::convertToDto);
+
+// Step 5: Replace string concatenation with Text Blocks
+String query = """
+    SELECT * FROM users 
+    WHERE active = true 
+    ORDER BY created_date DESC
+    """;
+```
 
 **Key Points to Remember:**
-- **Records**: Immutable, automatic methods, compact constructors
-- **Pattern Matching**: Type-safe casting, guard conditions
-- **Text Blocks**: Multi-line strings, automatic formatting
-- **Switch Expressions**: No fall-through, yield keyword
-- **Sealed Classes**: Restricted inheritance (Java 17+)
-- **var Keyword**: Local variable type inference (Java 10+)
-- **Compatibility**: Preview features require specific compiler flags
-- **Migration**: Gradual adoption possible with existing codebases
+- **Records**: Immutable, automatic methods, compact constructors, perfect for DTOs
+- **Pattern Matching**: Type-safe casting, guard conditions, eliminates explicit casting
+- **Text Blocks**: Multi-line strings, automatic indentation handling, great for templates
+- **Switch Expressions**: No fall-through, yield keyword, more functional approach
+- **Migration**: Can be adopted incrementally without breaking existing code
+- **Performance**: Minimal overhead, significant readability improvements
+- **Best Practices**: Use for new code, migrate existing code gradually
+
+---
+
+## Comprehensive Real-World Example
+
+Here's a complete example demonstrating all modern Java features working together:
+
+```java
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+
+// Records for data modeling
+public record User(Long id, String name, String email, UserStatus status, List<String> roles) {
+    public User {
+        Objects.requireNonNull(id, "ID cannot be null");
+        Objects.requireNonNull(name, "Name cannot be null");
+        if (roles == null) roles = List.of();
+    }
+    
+    public boolean isActive() { return status == UserStatus.ACTIVE; }
+    public boolean hasRole(String role) { return roles.contains(role); }
+}
+
+public record ApiResponse<T>(int statusCode, String message, Optional<T> data, List<String> errors) {
+    public static <T> ApiResponse<T> success(T data) {
+        return new ApiResponse<>(200, "Success", Optional.of(data), List.of());
+    }
+    
+    public static <T> ApiResponse<T> error(int code, String message, List<String> errors) {
+        return new ApiResponse<>(code, message, Optional.empty(), errors);
+    }
+}
+
+public enum UserStatus { ACTIVE, INACTIVE, SUSPENDED }
+
+// Service class using modern Java features
+public class UserService {
+    private final Map<Long, User> userDatabase = Map.of(
+        1L, new User(1L, "Alice Johnson", "alice@example.com", UserStatus.ACTIVE, List.of("USER", "ADMIN")),
+        2L, new User(2L, "Bob Smith", "bob@example.com", UserStatus.INACTIVE, List.of("USER")),
+        3L, new User(3L, "Charlie Brown", "charlie@example.com", UserStatus.ACTIVE, List.of("USER", "MODERATOR"))
+    );
+    
+    // Using Optional for safe lookups
+    public Optional<User> findById(Long id) {
+        return Optional.ofNullable(userDatabase.get(id));
+    }
+    
+    // Stream API for complex filtering
+    public List<User> findActiveAdmins() {
+        return userDatabase.values().stream()
+            .filter(User::isActive)
+            .filter(user -> user.hasRole("ADMIN"))
+            .sorted(Comparator.comparing(User::name))
+            .collect(Collectors.toList());
+    }
+    
+    // Pattern matching for user processing
+    public String processUserAction(Object action, User user) {
+        return switch (action) {
+            case String command when "DELETE".equals(command) && user.hasRole("ADMIN") ->
+                "Admin " + user.name() + " can delete resources";
+            case String command when "READ".equals(command) && user.isActive() ->
+                "User " + user.name() + " can read resources";
+            case Integer priority when priority > 5 && user.hasRole("MODERATOR") ->
+                "High priority task assigned to moderator " + user.name();
+            case List<?> tasks when !tasks.isEmpty() && user.isActive() ->
+                "Assigned " + tasks.size() + " tasks to " + user.name();
+            default -> "Action not permitted for user " + user.name();
+        };
+    }
+    
+    // CompletableFuture for async operations
+    public CompletableFuture<ApiResponse<User>> createUserAsync(String name, String email) {
+        return CompletableFuture
+            .supplyAsync(() -> {
+                // Simulate validation
+                if (name == null || email == null) {
+                    throw new IllegalArgumentException("Name and email are required");
+                }
+                
+                // Simulate database save
+                Long newId = (long) (userDatabase.size() + 1);
+                User newUser = new User(newId, name, email, UserStatus.ACTIVE, List.of("USER"));
+                return newUser;
+            })
+            .thenApply(ApiResponse::success)
+            .exceptionally(ex -> ApiResponse.error(400, "Validation failed", 
+                List.of(ex.getMessage())));
+    }
+    
+    // Text blocks for email templates
+    public String generateWelcomeEmail(User user) {
+        return """
+            Subject: Welcome to Our Platform!
+            
+            Dear %s,
+            
+            Welcome to our amazing platform! We're excited to have you on board.
+            
+            Your account details:
+            - User ID: %d
+            - Email: %s
+            - Status: %s
+            - Roles: %s
+            
+            Getting started:
+            1. Complete your profile setup
+            2. Explore our features
+            3. Join the community discussions
+            
+            If you have any questions, our support team is here to help.
+            
+            Best regards,
+            The Platform Team
+            
+            ---
+            This is an automated message. Please do not reply to this email.
+            For support, visit: https://support.example.com
+            """.formatted(
+                user.name(), 
+                user.id(), 
+                user.email(),
+                user.status(),
+                String.join(", ", user.roles())
+            );
+    }
+    
+    // Combining multiple modern features
+    public CompletableFuture<String> generateUserReport() {
+        return CompletableFuture
+            .supplyAsync(() -> userDatabase.values())
+            .thenApply(users -> users.stream()
+                .collect(Collectors.groupingBy(
+                    User::status,
+                    Collectors.counting()
+                )))
+            .thenApply(statusCounts -> {
+                return """
+                    USER REPORT
+                    ===========
+                    
+                    Total Users by Status:
+                    %s
+                    
+                    Active Admins: %d
+                    
+                    Generated on: %s
+                    """.formatted(
+                        statusCounts.entrySet().stream()
+                            .map(entry -> "- " + entry.getKey() + ": " + entry.getValue())
+                            .collect(Collectors.joining("\n")),
+                        findActiveAdmins().size(),
+                        java.time.LocalDateTime.now()
+                    );
+            });
+    }
+}
+
+// Usage example
+public class ModernJavaDemo {
+    public static void main(String[] args) {
+        UserService userService = new UserService();
+        
+        // Optional usage
+        userService.findById(1L)
+            .filter(User::isActive)
+            .ifPresentOrElse(
+                user -> System.out.println("Found active user: " + user.name()),
+                () -> System.out.println("User not found or inactive")
+            );
+        
+        // Stream processing
+        List<User> admins = userService.findActiveAdmins();
+        System.out.println("Active admins: " + 
+            admins.stream().map(User::name).collect(Collectors.joining(", ")));
+        
+        // Pattern matching
+        User alice = userService.findById(1L).orElseThrow();
+        System.out.println(userService.processUserAction("DELETE", alice));
+        
+        // Async operations with error handling
+        userService.createUserAsync("John Doe", "john@example.com")
+            .thenAccept(response -> {
+                if (response.statusCode() == 200) {
+                    response.data().ifPresent(user -> 
+                        System.out.println("Created user: " + user.name()));
+                } else {
+                    System.out.println("Error: " + response.message());
+                }
+            })
+            .exceptionally(ex -> {
+                System.err.println("Async operation failed: " + ex.getMessage());
+                return null;
+            });
+        
+        // Text blocks for email
+        alice = userService.findById(1L).orElseThrow();
+        String email = userService.generateWelcomeEmail(alice);
+        System.out.println("Generated email:\n" + email);
+        
+        // Complex async report generation
+        userService.generateUserReport()
+            .thenAccept(System.out::println)
+            .join(); // Wait for completion in this demo
+    }
+}
+```
+
+This example demonstrates:
+- **Records** for immutable data structures with validation
+- **Optional** for safe null handling in database operations  
+- **Stream API** for functional data processing and filtering
+- **Pattern Matching** for type-safe conditional logic
+- **CompletableFuture** for asynchronous operations with error handling
+- **Text Blocks** for readable multi-line string templates
+- **Modern error handling** patterns and best practices
+
+---
+
+## Migration Checklist
+
+When adopting modern Java features in existing projects:
+
+1. ✅ **Start with Records** - Replace simple POJOs and DTOs
+2. ✅ **Add Optional** - For methods that might not return values  
+3. ✅ **Use Stream API** - Replace traditional loops for collection processing
+4. ✅ **Introduce Text Blocks** - For SQL queries, JSON templates, HTML
+5. ✅ **Pattern Matching** - Gradually replace instanceof chains
+6. ✅ **CompletableFuture** - For new asynchronous functionality
+7. ✅ **Switch Expressions** - Replace traditional switch statements
 
 ---
 

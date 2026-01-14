@@ -348,11 +348,96 @@ NEW → RUNNABLE → BLOCKED/WAITING/TIMED_WAITING → RUNNABLE → TERMINATED
 | ExecutorService | Cannot be used directly | Works seamlessly |
 | Testing | Harder to test | Easier to test and mock |
 
-**Follow-up Questions:**
-- What happens if you call run() instead of start()?
-- Can you restart a Thread that has finished execution?
-- What are daemon threads and when should you use them?
-- How does thread priority affect execution?
+**Follow-up Questions and Detailed Answers:**
+
+**Q: What happens if you call run() instead of start()?**
+**A:** Calling `run()` directly executes the thread's code in the **current thread** (usually main thread), not in a new thread. Calling `start()` creates a **new thread** and then calls `run()` in that new thread.
+
+```java
+Thread thread = new Thread(() -> {
+    System.out.println("Running in: " + Thread.currentThread().getName());
+});
+
+thread.run();   // Output: "Running in: main" - executes in current thread
+thread.start(); // Output: "Running in: Thread-0" - executes in new thread
+```
+
+**Q: Can you restart a Thread that has finished execution?**
+**A:** **No**, you cannot restart a thread that has finished execution. Once a thread reaches the TERMINATED state, calling `start()` again throws `IllegalThreadStateException`. You must create a **new Thread object** to run the same task again.
+
+```java
+Thread thread = new Thread(() -> System.out.println("Task executed"));
+thread.start(); // First execution - works fine
+thread.join();  // Wait for completion
+
+// thread.start(); // This throws IllegalThreadStateException!
+
+// Correct approach - create new thread
+Thread newThread = new Thread(() -> System.out.println("Task executed again"));
+newThread.start(); // Works fine
+```
+
+**Q: What are daemon threads and when should you use them?**
+**A:** **Daemon threads** are background threads that don't prevent JVM from exiting. The JVM terminates when only daemon threads are running. **User threads** (non-daemon) keep the JVM alive until they complete.
+
+**Use Cases for Daemon Threads:**
+- **Garbage Collection** (JVM's internal cleanup)
+- **Background monitoring** (health checks, metrics collection)
+- **Cleanup tasks** (temporary file deletion, cache cleanup)
+- **Periodic maintenance** (log rotation, data archival)
+
+```java
+Thread daemonThread = new Thread(() -> {
+    while (true) {
+        System.out.println("Background cleanup running...");
+        try {
+            Thread.sleep(2000);
+        } catch (InterruptedException e) {
+            break; // Exit gracefully
+        }
+    }
+});
+
+daemonThread.setDaemon(true); // Must be set BEFORE start()
+daemonThread.start();
+
+// JVM will exit even if daemon thread is still running
+System.out.println("Main thread ending - JVM will terminate");
+```
+
+**Q: How does thread priority affect execution?**
+**A:** Thread priority is a **hint** to the thread scheduler about which threads should get more CPU time. However, it's **not guaranteed** and depends on the underlying operating system.
+
+**Priority Levels:**
+- `Thread.MIN_PRIORITY` (1) - Lowest priority
+- `Thread.NORM_PRIORITY` (5) - Default priority  
+- `Thread.MAX_PRIORITY` (10) - Highest priority
+
+```java
+Thread highPriorityThread = new Thread(() -> {
+    for (int i = 0; i < 5; i++) {
+        System.out.println("High priority: " + i);
+    }
+});
+
+Thread lowPriorityThread = new Thread(() -> {
+    for (int i = 0; i < 5; i++) {
+        System.out.println("Low priority: " + i);
+    }
+});
+
+highPriorityThread.setPriority(Thread.MAX_PRIORITY);
+lowPriorityThread.setPriority(Thread.MIN_PRIORITY);
+
+// Higher priority thread MAY get more CPU time, but not guaranteed
+highPriorityThread.start();
+lowPriorityThread.start();
+```
+
+**Important Notes:**
+- **Platform dependent**: Some operating systems ignore thread priorities
+- **Not reliable**: Don't depend on priority for correctness, only for performance hints
+- **Use synchronization**: For thread coordination, use proper synchronization mechanisms instead
 
 **Key Points to Remember:**
 - **Prefer Runnable**: Better design, more flexible, allows inheritance
