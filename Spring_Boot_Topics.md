@@ -9956,6 +9956,1907 @@ public class EmployeeService {
 
 ---
 
+## Spring Transactions and @Transactional
+
+### What is a Transaction?
+
+A **transaction** is a sequence of operations performed as a single logical unit of work. Either all operations succeed (commit), or all fail (rollback).
+
+**Problem Without Transactions:**
+```java
+public void transferMoney(Long fromAccount, Long toAccount, Double amount) {
+    accountRepository.debit(fromAccount, amount);   // ✅ Success
+    // ❌ System crashes here
+    accountRepository.credit(toAccount, amount);     // ❌ Never executed
+}
+// Result: Money deducted but never credited - Data inconsistency!
+```
+
+**Solution With Transactions:**
+```java
+@Transactional
+public void transferMoney(Long fromAccount, Long toAccount, Double amount) {
+    accountRepository.debit(fromAccount, amount);
+    accountRepository.credit(toAccount, amount);
+}
+// ✅ Both operations succeed OR both rollback - Data stays consistent!
+```
+
+---
+
+### ACID Properties
+
+| Property       | Description                                                          | Example                                    |
+|----------------|----------------------------------------------------------------------|--------------------------------------------|
+| **Atomicity**  | All operations succeed or all fail (all-or-nothing)                  | Money transfer: debit AND credit both happen or neither |
+| **Consistency**| Database remains in valid state before and after transaction         | Account balance never negative             |
+| **Isolation**  | Concurrent transactions don't interfere with each other              | Two transfers on same account don't corrupt data |
+| **Durability** | Committed changes are permanent, even after system failure           | Completed transfer survives server crash   |
+
+---
+
+### Transaction Lifecycle
+
+```
+1. BEGIN TRANSACTION
+2. Perform operations
+3. Check: All successful?
+   ├─ YES → COMMIT (permanent)
+   └─ NO  → ROLLBACK (undo all)
+4. END TRANSACTION
+```
+
+**Manual vs @Transactional:**
+
+```java
+// ❌ Old Way: Manual transaction management
+public void transfer(Long from, Long to, Double amount) {
+    TransactionStatus tx = transactionManager.getTransaction(new DefaultTransactionDefinition());
+    try {
+        // business logic
+        transactionManager.commit(tx);
+    } catch (Exception e) {
+        transactionManager.rollback(tx);
+        throw e;
+    }
+}
+
+// ✅ Modern Way: @Transactional
+@Transactional
+public void transfer(Long from, Long to, Double amount) {
+    // business logic
+    // Spring handles begin, commit, rollback automatically
+}
+```
+
+---
+
+### Using @Transactional
+
+**Add Dependency:**
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-jpa</artifactId>
+</dependency>
+```
+
+**Method-Level:**
+```java
+@Service
+public class EmployeeService {
+    @Transactional  // ✅ Only this method is transactional
+    public void createEmployee(Employee employee) {
+        employeeRepository.save(employee);
+    }
+    
+    public Employee getEmployee(Long id) {  // ❌ NOT transactional
+        return employeeRepository.findById(id).orElseThrow();
+    }
+}
+```
+
+**Class-Level:**
+```java
+@Service
+@Transactional  // ✅ All public methods are transactional
+public class EmployeeService {
+    public void createEmployee(Employee employee) { }  // ✅ Transactional
+    public void updateEmployee(Long id, Employee emp) { }  // ✅ Transactional
+    private void helper() { }  // ❌ Private methods NOT transactional
+}
+```
+
+---
+
+### Complete Example: Order Processing
+
+**Entities & Repositories:**
+```java
+@Entity
+public class Order {
+    @Id @GeneratedValue
+    private Long id;
+    private Long productId;
+    private Integer quantity;
+    private String status;
+}
+
+@Entity
+public class Inventory {
+    @Id @GeneratedValue
+    private Long id;
+    private Long productId;
+    private Integer stock;
+}
+
+@Repository
+public interface OrderRepository extends JpaRepository<Order, Long> { }
+
+@Repository
+public interface InventoryRepository extends JpaRepository<Inventory, Long> {
+    Inventory findByProductId(Long productId);
+}
+```
+
+**Service:**
+```java
+@Service
+public class OrderService {
+    @Autowired private OrderRepository orderRepository;
+    @Autowired private InventoryRepository inventoryRepository;
+    
+    @Transactional
+    public void processOrder(Long productId, Integer quantity) {
+        // Create order
+        Order order = new Order();
+        order.setProductId(productId);
+        order.setQuantity(quantity);
+        order.setStatus("PENDING");
+        orderRepository.save(order);
+        
+        // Check and update inventory
+        Inventory inventory = inventoryRepository.findByProductId(productId);
+        if (inventory.getStock() < quantity) {
+            throw new RuntimeException("Insufficient stock!");  // ❌ Triggers rollback
+        }
+        
+        inventory.setStock(inventory.getStock() - quantity);
+        inventoryRepository.save(inventory);
+        
+        order.setStatus("COMPLETED");
+        orderRepository.save(order);
+    }
+}
+```
+
+**Execution:**
+```java
+// Success Case:
+orderService.processOrder(1L, 10);  // ✅ Order created, inventory reduced
+
+// Failure Case:
+orderService.processOrder(1L, 100);  // ❌ Insufficient stock
+// Result: Order NOT created, inventory unchanged (rollback)
+```
+
+---
+### How @Transactional Works (AOP)
+
+Spring uses **AOP (Aspect-Oriented Programming)** to implement `@Transactional`. When you annotate a method with `@Transactional`, Spring creates a **proxy** around your bean and applies an "around advice" using its internal `TransactionInterceptor`.
+
+**How it works:**
+- The proxy intercepts calls to methods annotated with `@Transactional`.
+- Before the method runs, `TransactionInterceptor` starts a transaction.
+- Executes your business logic.
+- Commits the transaction if successful, or rolls back if an exception occurs.
+
+**Spring's Internal AOP Code (Simplified):**
+```java
+// Inside Spring Framework: TransactionInterceptor.java
+@Around("@annotation(org.springframework.transaction.annotation.Transactional)")
+public Object invokeWithinTransaction(ProceedingJoinPoint joinPoint) throws Throwable {
+    TransactionStatus tx = transactionManager.getTransaction(definition);
+    try {
+        Object result = joinPoint.proceed();  // Execute actual method
+        transactionManager.commit(tx);
+        return result;
+    } catch (RuntimeException | Error ex) {
+        transactionManager.rollback(tx);
+        throw ex;
+    }
+}
+```
+
+**Proxy Types:**
+- **JDK Dynamic Proxy**: If bean implements an interface.
+- **CGLIB Proxy**: If bean is a class without interface.
+
+**Diagram:**
+```
+Client → [Proxy] → TransactionInterceptor
+           |         |
+           |         └─ Transaction started (@Around advice)
+           |         └─ Business logic executed
+           |         └─ Commit or rollback
+           └─ Returns result
+```
+
+**Key Points:**
+- Works only on public methods.
+- Rollback happens on unchecked exceptions by default.
+- Self-invocation (calling another transactional method from the same class) won’t trigger a transaction.
+
+---
+
+### Summary
+
+**What are Transactions?**
+- ✅ Sequence of operations as **single unit** (all-or-nothing)
+- ✅ Ensure **data integrity** and **consistency**
+
+**ACID Properties:**
+- **Atomicity**: All succeed or all fail
+- **Consistency**: Database stays valid
+- **Isolation**: Concurrent transactions don't interfere
+- **Durability**: Committed changes permanent
+
+**@Transactional:**
+- ✅ Simplifies transaction management (no boilerplate)
+- ✅ Uses **Spring AOP** (proxy-based)
+- ✅ Works on **public methods only**
+- ✅ Requires **spring-boot-starter-data-jpa**
+
+**How It Works:**
+1. Spring creates **proxy** around @Transactional beans
+2. **TransactionInterceptor** intercepts calls
+3. **Begins transaction** → **Executes logic** → **Commits/Rolls back**
+
+**Rollback Behavior:**
+- ✅ Rolls back on **RuntimeException** and **Error**
+- ❌ NOT on **checked exceptions** (unless configured)
+
+**Remember:**
+- Use on **service layer** only
+- **Public methods only** (private won't work)
+- Keep transactions **short**
+- Use **readOnly = true** for read operations
+- Avoid **self-invocation**
+
+---
+
+---
+
+## Spring Transaction Managers
+
+Spring uses **Transaction Managers** to handle transactions for different data sources (JDBC, JPA, Hibernate, etc.). You can manage transactions declaratively (with `@Transactional`) or programmatically.
+
+### Transaction Manager Hierarchy
+
+### Spring Transaction Manager Hierarchy Diagram
+
+```
+TransactionManager (interface)
+        │
+        ▼
+PlatformTransactionManager (interface)
+   ├─ getTransaction()
+   ├─ commit()
+   └─ rollback()
+        │
+        ▼
+AbstractPlatformTransactionManager (abstract class)
+   ├─ Implements getTransaction()
+   ├─ Implements commit()
+   └─ Implements rollback()
+        │
+        ▼
+─────────────────────────────────────────────
+│ Concrete Implementations:                 │
+│                                           │
+│  ├─ DataSourceTransactionManager   (JDBC)  │
+│  ├─ JpaTransactionManager         (JPA)    │
+│  ├─ HibernateTransactionManager   (Hibernate) │
+│  └─ JtaTransactionManager         (Distributed/JTA) │
+─────────────────────────────────────────────
+```
+
+- **TransactionManager (Interface):** Parent interface for all transaction managers.
+- **PlatformTransactionManager (Interface):** Extends TransactionManager; defines:
+  - `getTransaction()`
+  - `commit()`
+  - `rollback()`
+- **AbstractPlatformTransactionManager (Abstract Class):** Implements common logic for transaction managers.
+- **Concrete Implementations:**
+  - `DataSourceTransactionManager` (JDBC)
+  - `HibernateTransactionManager` (Hibernate)
+  - `JpaTransactionManager` (JPA, default in Spring Boot)
+  - `JtaTransactionManager` (Distributed transactions, two-phase commit)
+
+### How to Check Which Transaction Manager Is Used
+
+Spring Boot auto-configures the transaction manager based on your dependencies. To check at runtime:
+
+```java
+@Autowired
+private PlatformTransactionManager transactionManager;
+
+@PostConstruct
+public void printTransactionManagerType() {
+    System.out.println("Transaction Manager: " + transactionManager.getClass().getName());
+}
+```
+
+### How to Explicitly Configure a Transaction Manager
+
+You can define a specific transaction manager in a configuration class:
+
+```java
+@Configuration
+public class TxConfig {
+    @Bean
+    public PlatformTransactionManager txManager(DataSource dataSource) {
+        return new DataSourceTransactionManager(dataSource);
+    }
+}
+```
+
+### Declarative vs Programmatic Transaction Management
+
+#### Declarative (Recommended for CRUD)
+
+- Use `@Transactional` annotation on service methods.
+- Spring manages transaction boundaries automatically.
+
+#### Programmatic (For Advanced Use Cases)
+
+Use when you need fine-grained control (e.g., external API calls, long-running operations).
+
+**Direct API Approach:**
+```java
+@Autowired
+private PlatformTransactionManager txManager;
+
+public void doWork() {
+    DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+    TransactionStatus status = txManager.getTransaction(def);
+    try {
+        // business logic
+        txManager.commit(status);
+    } catch (Exception e) {
+        txManager.rollback(status);
+        throw e;
+    }
+}
+```
+
+**Using TransactionTemplate (Simpler):**
+```java
+@Autowired
+private TransactionTemplate transactionTemplate;
+
+public void doWork() {
+    transactionTemplate.execute(status -> {
+        // business logic
+        return null;
+    });
+}
+```
+
+### When to Use Programmatic Transactions
+
+- When you need to control transaction boundaries manually.
+- For operations that involve external resources or long-running tasks.
+
+---
+
+**Summary:**
+- Spring provides multiple transaction managers for different data sources.
+- Use `@Transactional` for most cases.
+- Use programmatic transactions for advanced scenarios.
+- Spring Boot auto-configures the right transaction manager for you.
+
+---
+
+---
+## Spring Transaction Propagation
+
+**Transaction propagation** determines how Spring manages transactions when a `@Transactional` method calls another `@Transactional` method—either in the same bean or across beans.
+
+### Why is Propagation Important?
+- Controls whether methods join existing transactions, start new ones, or run outside transactions.
+- Prevents data inconsistencies and unexpected rollbacks in complex business flows.
+
+---
+
+### Propagation Types
+
+| Propagation Type   | Behavior                                                                                   | Typical Use Case                        |
+|--------------------|-------------------------------------------------------------------------------------------|-----------------------------------------|
+| **REQUIRED**       | (Default) Joins existing transaction, or starts a new one if none exists.                 | Most business logic methods             |
+| **REQUIRES_NEW**   | Always starts a new transaction, suspending any existing one.                             | Logging, auditing, notifications        |
+| **MANDATORY**      | Must run inside an existing transaction; throws exception if none exists.                 | Enforce transaction context             |
+| **NESTED**         | Creates a savepoint within an existing transaction; allows partial rollbacks.             | Partial rollbacks in large transactions |
+| **SUPPORTS**       | Joins existing transaction if present; else runs non-transactionally.                     | Read-only or optional transactional ops |
+| **NOT_SUPPORTED**  | Runs non-transactionally; suspends any existing transaction.                              | Third-party API calls, notifications    |
+| **NEVER**          | Must run outside a transaction; throws exception if called within one.                    | Health checks, monitoring               |
+
+---
+
+### Code Examples
+
+```java
+@Service
+public class PaymentService {
+
+    // REQUIRED (default): Joins or creates a transaction
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void processPayment() { /* ... */ }
+
+    // REQUIRES_NEW: Always starts a new transaction
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void logAudit() { /* ... */ }
+
+    // MANDATORY: Must be called within a transaction
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void updateLedger() { /* ... */ }
+
+    // NESTED: Creates a savepoint for partial rollback
+    @Transactional(propagation = Propagation.NESTED)
+    public void updateSubTask() { /* ... */ }
+
+    // SUPPORTS: Joins if transaction exists, else runs without one
+    @Transactional(propagation = Propagation.SUPPORTS)
+    public void getReport() { /* ... */ }
+
+    // NOT_SUPPORTED: Always runs outside a transaction
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void sendNotification() { /* ... */ }
+
+    // NEVER: Throws if called within a transaction
+    @Transactional(propagation = Propagation.NEVER)
+    public void healthCheck() { /* ... */ }
+}
+```
+
+---
+
+### Quick Reference Table
+
+| Propagation      | Joins Existing Tx? | Starts New Tx? | Throws if Tx Exists? | Suspends Existing Tx? | Use Case Example           |
+|------------------|:------------------:|:--------------:|:--------------------:|:---------------------:|----------------------------|
+| REQUIRED         | Yes                | Yes            | No                   | No                    | Default, most business ops |
+| REQUIRES_NEW     | No                 | Yes            | No                   | Yes                   | Audit, logging             |
+| MANDATORY        | Yes                | No             | Yes                  | No                    | Enforce context            |
+| NESTED           | Yes (savepoint)    | Yes (if none)  | No                   | No                    | Partial rollback           |
+| SUPPORTS         | Yes                | No             | No                   | No                    | Optional tx                |
+| NOT_SUPPORTED    | No                 | No             | No                   | Yes                   | External API call          |
+| NEVER            | No                 | No             | Yes                  | No                    | Health check               |
+
+---
+
+**Summary:**  
+Choose the right propagation type to control transaction boundaries and avoid unexpected data issues in complex Spring
+---
+
+
+
+---
+
+## Spring Transaction Isolation Levels
+
+**Transaction isolation** defines how concurrent transactions interact with each other's data. The right isolation level helps maintain data integrity and optimize performance.
+
+---
+
+### Common Problems in Concurrent Transactions
+
+| Problem              | Description                                                                                  |
+|----------------------|----------------------------------------------------------------------------------------------|
+| **Dirty Read**       | Transaction reads data modified by another transaction that hasn’t committed yet. If the other transaction rolls back, the read data is invalid ("dirty"). |
+| **Non-Repeatable Read** | Transaction reads the same row twice and gets different data because another transaction modified and committed changes between reads. |
+| **Phantom Read**     | Transaction executes a query, then another transaction inserts/deletes rows matching the query. Re-executing the query returns a different set of rows. |
+
+---
+
+### Isolation Levels
+
+| Level              | Dirty Read | Non-Repeatable Read | Phantom Read | Locks Used         | Typical Use Case                |
+|--------------------|:----------:|:-------------------:|:------------:|--------------------|---------------------------------|
+| **DEFAULT**        | DB default | DB default          | DB default   | DB default         | Use database’s default          |
+| **READ_UNCOMMITTED** | Yes       | Yes                 | Yes          | No locks           | Read-heavy, low integrity needed|
+| **READ_COMMITTED**   | No        | Yes                 | Yes          | Shared/exclusive   | Most common, prevents dirty reads|
+| **REPEATABLE_READ**  | No        | No                  | Yes          | Shared for duration| Prevents dirty/non-repeatable   |
+| **SERIALIZABLE**     | No        | No                  | No           | Range/row locks    | Highest integrity, lowest concurrency|
+
+---
+
+### How Each Level Works
+
+- **READ_UNCOMMITTED**: No locks. All problems (dirty, non-repeatable, phantom reads) can occur.
+- **READ_COMMITTED**: Shared lock while reading, exclusive lock while updating. Prevents dirty reads, but non-repeatable and phantom reads can still happen.
+- **REPEATABLE_READ**: Holds shared locks for the entire transaction. Prevents dirty and non-repeatable reads, but phantom reads are possible.
+- **SERIALIZABLE**: Applies locks on entire ranges of rows. Prevents all three problems but can reduce performance due to high locking.
+
+---
+
+### Code Example
+
+```java
+@Service
+public class AccountService {
+
+    // Set isolation level for this transaction
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void transfer(Long fromId, Long toId, Double amount) {
+        // business logic
+    }
+}
+```
+
+**Isolation options:**
+- `Isolation.DEFAULT`
+- `Isolation.READ_UNCOMMITTED`
+- `Isolation.READ_COMMITTED`
+- `Isolation.REPEATABLE_READ`
+- `Isolation.SERIALIZABLE`
+
+---
+
+### Choosing the Right Isolation Level
+
+- **SERIALIZABLE**: Use when absolute data integrity is required (e.g., financial transactions). May impact performance.
+- **REPEATABLE_READ**: Use when you need consistent reads within a transaction.
+- **READ_COMMITTED**: Good default for most applications; prevents dirty reads.
+- **READ_UNCOMMITTED**: Use only for read-heavy, non-critical data.
+
+---
+
+**Summary:**  
+Choose the isolation level based on your application's need for data integrity vs. performance.  
+- **Higher isolation = more integrity, less concurrency.**
+- **Lower isolation = more concurrency, risk of inconsistent
+---
+
+
+---
+
+## Spring Boot Actuator
+
+Spring Boot Actuator provides production-ready features for monitoring and managing your application. It exposes a set of REST endpoints that give insights into the health, metrics, environment, and more.
+
+---
+
+### How to Enable Actuator
+
+**Step 1: Add Dependency**
+```xml
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-actuator</artifactId>
+</dependency>
+```
+
+**Step 2: Basic Endpoints**
+- `/actuator` – Lists all available endpoints
+- `/actuator/health` – Shows application health status
+
+---
+
+### Exposing and Customizing Endpoints
+
+**Expose All Endpoints:**
+```properties
+management.endpoints.web.exposure.include=*
+```
+
+**Disable Specific Endpoint (e.g., /info):**
+```properties
+management.endpoint.info.enabled=false
+```
+
+**Customize Base Path:**
+```properties
+management.endpoints.web.base-path=/manage
+```
+
+---
+
+### Common Actuator Endpoints
+
+| Endpoint                | Description                                      |
+|-------------------------|--------------------------------------------------|
+| `/actuator/beans`       | Lists all Spring beans in the context            |
+| `/actuator/caches`      | Shows caches used by the app                     |
+| `/actuator/health`      | Health status (UP/DOWN)                          |
+| `/actuator/info`        | General app info (if enabled)                    |
+| `/actuator/conditions`  | Shows config/autoconfig conditions               |
+| `/actuator/configprops` | Lists all `@ConfigurationProperties`             |
+| `/actuator/env`         | Active profiles and environment properties       |
+| `/actuator/loggers`     | Lists all loggers and their levels               |
+| `/actuator/heapdump`    | Provides a heap dump file                        |
+| `/actuator/threaddump`  | Shows thread details                             |
+| `/actuator/metrics`     | Application metrics (disk, JVM, threads, etc.)   |
+| `/actuator/metrics/{name}` | Specific metric (e.g., `disk.free`)           |
+| `/actuator/mappings`    | Shows all REST endpoints and mappings            |
+
+---
+
+### Monitoring and Tracing
+
+- **Metrics Integration:** Can be connected to external tools (DataDog, New Relic) for visualization.
+- **Distributed Tracing:** Supports tracing with Zipkin, Sleuth, etc.
+
+---
+
+### Summary
+
+- Add Actuator dependency to enable monitoring endpoints.
+- Customize which endpoints are exposed via `application.properties`.
+- Use endpoints for health checks, metrics, environment info, and more.
+- Integrate with external monitoring and tracing tools for production
+
+---
+
+---
+
+## Spring Boot Logging
+
+Logging is essential for debugging, monitoring, and understanding application behavior, especially in production.
+
+---
+
+### Logging Frameworks in Spring Boot
+
+- **Logback**: Default logging framework in Spring Boot.
+- **Log4j2**, **Java Util Logging**: Supported alternatives.
+- **SLF4J**: Facade used by Spring Boot; works with Logback and others.
+
+---
+
+### Log Format
+
+Spring Boot’s default log format includes:
+```
+2026-01-17 12:34:56.789  INFO 12345 --- [main] com.example.MyApp : Application started
+|   |         |     |      |         |         |                  |
+|   |         |     |      |         |         |                  └─ Log message
+|   |         |     |      |         |         └─ Logger name (class/package)
+|   |         |     |      |         └─ Thread name
+|   |         |     └─ Process ID
+|   |         └─ Log level (INFO, ERROR, etc.)
+|   └─ Timestamp
+```
+
+---
+
+### Logging Levels
+
+| Level   | Description                        | Use Case                        |
+|---------|------------------------------------|---------------------------------|
+| FATAL   | Critical errors, app may crash     | System shutdowns                |
+| ERROR   | Unexpected breaks/exceptions       | Exceptions, failed operations   |
+| WARN    | Potential future issues            | Deprecated APIs, config issues  |
+| INFO    | General info, major tasks          | Startup, shutdown, key events   |
+| DEBUG   | Detailed debug info (off by default)| Troubleshooting, dev debugging  |
+| TRACE   | Most detailed, step-by-step traces | Deep diagnostics                |
+
+- **DEBUG** and **TRACE** are not enabled by default.
+
+---
+
+### Implementing Logging
+
+**Using SLF4J:**
+```java
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Service
+public class MyService {
+    private static final Logger logger = LoggerFactory.getLogger(MyService.class);
+
+    public void doWork() {
+        logger.info("Starting work");
+        logger.debug("Debug details here");
+        logger.error("Something went wrong");
+    }
+}
+```
+
+**Using Lombok’s @Slf4j (Recommended):**
+```java
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Service
+public class MyService {
+    public void doWork() {
+        log.info("Starting work");
+        log.debug("Debug details here");
+        log.error("Something went wrong");
+    }
+}
+```
+
+---
+
+### Configuring Log Levels
+
+Set log levels in `application.properties`:
+
+```properties
+# Set global log level
+logging.level.root=INFO
+
+# Set log level for a specific package
+logging.level.com.example=DEBUG
+
+# Enable TRACE logs for a specific class
+logging.level.com.example.service.MyService=TRACE
+```
+
+- To enable all DEBUG logs:
+  ```properties
+  logging.level.root=DEBUG
+  ```
+
+---
+
+### Best Practices
+
+- Use **INFO** for major events, **ERROR** for failures, **DEBUG/TRACE** for troubleshooting.
+- Never log sensitive data (passwords, secrets).
+- Use **@Slf4j** for cleaner code.
+- Adjust log levels per environment (e.g., DEBUG in dev, INFO/WARN in prod).
+- Monitor logs in production using tools like ELK, Splunk, or cloud logging services.
+
+---
+
+
+
+**Summary:**  
+Spring Boot uses Logback by default and supports SLF4J for abstraction. Configure log levels in `application.properties` for granular control. Use logging wisely for effective monitoring and debugging.
+
+---
+
+---
+
+## Unit Testing in Spring Boot with JUnit 5 and Mockito
+
+Unit testing means testing the smallest isolated parts of your code (like individual methods or classes) to ensure they work as expected.
+
+---
+
+### Why Unit Tests Matter
+
+- **Faster feedback** on code changes
+- **Early bug detection** before production
+- **Easier maintenance** and refactoring
+- **Increased developer confidence**
+- **Prevents breaking changes** from reaching production
+
+---
+
+### Project Setup
+
+- **Test folder structure:**  
+  - `src/main/java` – Application code  
+  - `src/test/java` – Test code (mirrors main package structure)
+- **Dependency:**  
+  Add to `pom.xml` (Spring Boot projects include this by default):
+  ```xml
+  <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+  </dependency>
+  ```
+  This brings in **JUnit 5** and **Mockito** automatically.
+
+---
+
+### Writing a Basic Unit Test
+
+**Service to Test:**
+```java
+@Service
+public class ProductService {
+    @Autowired
+    private ProductRepository productRepository;
+
+    public Product getProductById(Long id) {
+        return productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Product not found"));
+    }
+}
+```
+
+**Unit Test Example:**
+```java
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
+
+@ExtendWith(MockitoExtension.class)
+class ProductServiceTest {
+
+    @Mock
+    private ProductRepository productRepository; // Mock dependency
+
+    @InjectMocks
+    private ProductService productService; // Injects mock into service
+
+    @Test
+    void testGetProductById() {
+        Product mockProduct = new Product(1L, "Laptop");
+        when(productRepository.findById(1L)).thenReturn(Optional.of(mockProduct));
+
+        Product result = productService.getProductById(1L);
+
+        assertNotNull(result);
+        assertEquals("Laptop", result.getName());
+        verify(productRepository, times(1)).findById(1L);
+    }
+}
+```
+
+---
+
+### Key Annotations & Methods
+
+- `@Test` – Marks a test method (JUnit 5)
+- `@Mock` – Creates a mock object (Mockito)
+- `@InjectMocks` – Injects mocks into the class under test
+- `when(...).thenReturn(...)` – Defines mock behavior
+- `assertEquals`, `assertNotNull` – JUnit assertions for validation
+- `verify(...)` – Checks if a mock method was called
+
+---
+
+### Best Practices
+
+- Test **one unit** (class/method) at a time
+- **Mock dependencies** to isolate the unit under test
+- Use **assertions** to validate expected outcomes
+- Name test methods clearly (e.g., `testGetProductById_returnsProduct`)
+- Keep tests **fast** and **repeatable**
+
+---
+
+**Next Steps:**  
+- Learn about test lifecycle methods, testing exceptions, private methods, and mocking void methods (`doNothing()`), as covered in Part 2.
+
+---
+
+---
+
+## Advanced Unit Testing in Spring Boot with JUnit 5 and Mockito
+
+This section covers advanced unit testing techniques: test lifecycle methods, mocking void methods, testing private methods, and exception testing.
+
+---
+
+### Test Lifecycle in JUnit 5
+
+| Annotation      | When It Runs                | Typical Use Case         |
+|-----------------|----------------------------|-------------------------|
+| `@BeforeAll`    | Once before all tests      | Class-level setup       |
+| `@BeforeEach`   | Before each test           | Test-level setup        |
+| `@AfterEach`    | After each test            | Cleanup after test      |
+| `@AfterAll`     | Once after all tests       | Class-level cleanup     |
+
+**Example:**
+```java
+@BeforeAll
+static void setupAll() { /* Runs once before all tests */ }
+
+@BeforeEach
+void setup() { /* Runs before each test */ }
+
+@AfterEach
+void tearDown() { /* Runs after each test */ }
+
+@AfterAll
+static void tearDownAll() { /* Runs once after all tests */ }
+```
+
+---
+
+### Mocking Void Methods
+
+- Use `Mockito.doNothing().when(mock).voidMethod()` to mock void methods.
+- Use `Mockito.verify(mock).voidMethod()` to check if a void method was called.
+
+**Example:**
+```java
+@Mock
+private NotificationService notificationService;
+
+@Test
+void testSendNotification() {
+    doNothing().when(notificationService).sendEmail(anyString(), anyString());
+    userService.notifyUser("john@example.com", "Hello");
+    verify(notificationService, times(1)).sendEmail("john@example.com", "Hello");
+}
+```
+
+---
+
+### Testing Private Methods
+
+- **Best Practice:** Test private methods indirectly via public methods.
+- **Advanced:** Use Java Reflection for direct testing (not recommended for most cases).
+
+**Example (Reflection):**
+```java
+Method privateMethod = MyService.class.getDeclaredMethod("calculateDiscount", double.class);
+privateMethod.setAccessible(true);
+double result = (double) privateMethod.invoke(myService, 100.0);
+assertEquals(90.0, result);
+```
+
+---
+
+### Testing Exceptions
+
+- Use `assertThrows` to check that a method throws the expected exception.
+- You can also assert the exception message.
+
+**Example:**
+```java
+@Test
+void testThrowsException() {
+    Exception ex = assertThrows(IllegalArgumentException.class, () -> {
+        productService.getProductById(-1L);
+    });
+    assertEquals("Invalid product ID", ex.getMessage());
+}
+```
+
+- Use `verify(mock, times(0))` or `verify(mock, never())` to ensure a method was **not** called when an exception occurs.
+
+**Example:**
+```java
+@Test
+void testNoNotificationOnError() {
+    doThrow(new RuntimeException()).when(notificationService).sendEmail(anyString(), anyString());
+    assertThrows(RuntimeException.class, () -> userService.notifyUser("fail@example.com", "Hi"));
+    verify(notificationService, never()).sendSms(anyString(), anyString());
+}
+```
+
+---
+
+### Summary
+
+- Use JUnit 5 lifecycle annotations for setup and cleanup.
+- Mock void methods with `doNothing()` and verify calls.
+- Test private logic via public methods; use reflection only if necessary.
+- Use `assertThrows` for exception testing and verify side effects.
+
+---
+
+
+---
+
+## Spring Batch Introduction
+
+**Spring Batch** is a lightweight, robust framework for building batch processing applications in Java, especially suited for handling large volumes of data efficiently.
+
+---
+
+### Why Use Spring Batch?
+
+- **Efficient Data Processing:** Handles millions of records (e.g., daily bank transactions, report generation) much faster than one-by-one processing.
+- **Chunked Processing:** Reads, processes, and writes data in chunks for better performance and parallelism.
+- **Scheduled Execution:** Supports scheduling jobs to run automatically at specific times.
+- **Error Handling & Retry:** Built-in mechanisms to retry failed steps or restart jobs.
+- **Job Monitoring:** Provides tools to monitor job progress and status.
+
+---
+
+### Spring Batch Architecture
+
+```
++-------------------+
+|   Job Launcher    |  ← Triggers/starts a batch job
++-------------------+
+          |
+          v
++-------------------+
+|       Job         |  ← Sequence of steps (can have multiple executions)
++-------------------+
+          |
+          v
++-------------------+
+|      Step(s)      |  ← Each step is a phase in the job (read/process/write)
++-------------------+
+   |      |      |
+   v      v      v
+Reader Processor Writer
+   |      |      |
+   v      v      v
++-------------------+
+|  Job Repository   |  ← Stores job/step execution metadata in DB
++-------------------+
+```
+
+- **Job Launcher:** Starts a batch job.
+- **Job:** Defines the overall batch process (sequence of steps).
+- **Step:** A single phase/task in a job (e.g., read/process/write).
+- **Item Reader:** Reads data from a source (CSV, XML, DB, etc.).
+- **Item Processor:** Transforms or processes the data.
+- **Item Writer:** Writes processed data to the target (DB, file, etc.).
+- **Job Repository:** Persists job and step execution details for monitoring, restart, and auditing.
+
+---
+
+### Typical Use Cases
+
+- Processing large datasets (bank transactions, invoices, logs)
+- Generating reports
+- Data migration and ETL (Extract, Transform, Load)
+- Scheduled or recurring data processing tasks
+
+---
+
+**Summary:**  
+Spring Batch is essential for enterprise applications that need to process large volumes of data reliably, efficiently, and with robust error handling and monitoring.
+
+---
+
+
+---
+
+## Spring Batch 5.0: Hands-On Implementation for Large Data Insert
+
+This guide demonstrates how to use Spring Batch 5.0 in a Spring Boot application to efficiently insert a large dataset (e.g., 1000+ records) from a CSV file into a database.
+
+---
+
+### 1. Project Setup
+
+- Use **Spring Initializr** to create a new project with these dependencies:
+  - Spring Web
+  - Spring Data JPA
+  - H2 Database (for demo)
+  - Spring Batch
+
+---
+
+### 2. Data Preparation
+
+- Place your CSV file (e.g., `people.csv` with 1000 records) in `src/main/resources`.
+- Example CSV:
+  ```
+  id,firstName,lastName
+  1,John,Doe
+  2,Jane,Smith
+  ...
+  ```
+
+---
+
+### 3. application.properties Example
+
+```properties
+# H2 Database settings
+spring.datasource.url=jdbc:h2:mem:testdb
+spring.datasource.driver-class-name=org.h2.Driver
+spring.datasource.username=sa
+spring.datasource.password=
+spring.h2.console.enabled=true
+
+# Hibernate settings
+spring.jpa.hibernate.ddl-auto=create
+spring.jpa.show-sql=true
+
+# Spring Batch settings
+spring.batch.job.enabled=false  # Prevent auto-run on startup
+```
+
+---
+
+### 4. No Need for @EnableBatchProcessing
+
+- **Spring Batch 5.0:** `@EnableBatchProcessing` is NOT required; Spring Boot auto-configures batch support.
+
+---
+
+### 5. Batch Job Configuration
+
+**a. Entity Example**
+```java
+@Entity
+public class Person {
+    @Id
+    private Long id;
+    private String firstName;
+    private String lastName;
+    // getters/setters
+}
+```
+
+**b. Repository**
+```java
+public interface PersonRepository extends JpaRepository<Person, Long> {}
+```
+
+**c. Reader (FlatFileItemReader)**
+```java
+@Bean
+public FlatFileItemReader<Person> reader() {
+    FlatFileItemReader<Person> reader = new FlatFileItemReader<>();
+    reader.setResource(new ClassPathResource("people.csv"));
+    reader.setLinesToSkip(1); // Skip header
+    reader.setLineMapper(new DefaultLineMapper<>() {{
+        setLineTokenizer(new DelimitedLineTokenizer() {{
+            setNames("id", "firstName", "lastName");
+        }});
+        setFieldSetMapper(fieldSet -> {
+            Person p = new Person();
+            p.setId(fieldSet.readLong("id"));
+            p.setFirstName(fieldSet.readString("firstName"));
+            p.setLastName(fieldSet.readString("lastName"));
+            return p;
+        });
+    }});
+    return reader;
+}
+```
+
+**d. Processor**
+```java
+@Bean
+public ItemProcessor<Person, Person> processor() {
+    return person -> {
+        person.setFirstName(person.getFirstName().toUpperCase());
+        person.setLastName(person.getLastName().toUpperCase());
+        return person;
+    };
+}
+```
+
+**e. Writer**
+```java
+@Bean
+public RepositoryItemWriter<Person> writer(PersonRepository repo) {
+    RepositoryItemWriter<Person> writer = new RepositoryItemWriter<>();
+    writer.setRepository(repo);
+    writer.setMethodName("save");
+    return writer;
+}
+```
+
+**f. Step and Job**
+```java
+@Bean
+public Step importStep(JobRepository jobRepo, PlatformTransactionManager txManager,
+                       ItemReader<Person> reader, ItemProcessor<Person, Person> processor,
+                       ItemWriter<Person> writer) {
+    return new StepBuilder("importStep", jobRepo)
+        .<Person, Person>chunk(10, txManager)
+        .reader(reader)
+        .processor(processor)
+        .writer(writer)
+        .build();
+}
+
+@Bean
+public Job importJob(JobRepository jobRepo, Step importStep) {
+    return new JobBuilder("importJob", jobRepo)
+        .start(importStep)
+        .build();
+}
+```
+
+---
+
+### 6. REST API to Trigger Batch Job
+
+```java
+@RestController
+public class JobController {
+    @Autowired private JobLauncher jobLauncher;
+    @Autowired private Job importJob;
+
+    @PostMapping("/jobs/importData")
+    public String runJob() throws Exception {
+        JobParameters params = new JobParametersBuilder()
+            .addLong("time", System.currentTimeMillis())
+            .toJobParameters();
+        jobLauncher.run(importJob, params);
+        return "Batch job started!";
+    }
+}
+```
+
+---
+
+### 7. Running and Monitoring
+
+- Start the app, access H2 console at `/h2-console` to view tables.
+- Trigger the job via `POST /jobs/importData`.
+- Check that all records are inserted and names are capitalized.
+- Spring Batch auto-creates tables like `BATCH_JOB_EXECUTION` for job tracking.
+
+---
+
+### 8. Key Points
+
+- **Chunk Processing:** Processes data in batches (e.g., 10 records at a time).
+- **No @EnableBatchProcessing needed** in Spring Boot 3+/Batch 5+.
+- **JobRepository** tracks job/step execution and status.
+- **Efficient:** Handles large datasets quickly and reliably.
+
+---
+
+**Summary:**  
+Spring Batch 5.0 makes it easy to process and insert large datasets with minimal configuration, robust error handling, and built-in monitoring.
+
+---
+
+---
+
+## Spring Data JPA Introduction
+
+Spring Data JPA is a powerful framework that simplifies database access in Spring Boot applications by providing an abstraction layer over JPA (Java Persistence API) and ORM frameworks like Hibernate.
+
+---
+
+### Layered Architecture Recap
+
+- **Controller Layer:** Handles HTTP requests/responses.
+- **Service Layer:** Contains business logic.
+- **Repository Layer:** Handles database operations (CRUD).
+- **Why a Database?**  
+  - Data stored in memory is lost on app restart.
+  - Persistent storage (database) is needed for real-world apps.
+
+---
+
+### Traditional JDBC
+
+- Manual steps: load drivers, open/close connections, write SQL, set parameters, handle exceptions.
+- **Spring JDBC** automates some boilerplate but is still SQL/JDBC-based.
+
+---
+
+### ORM (Object-Relational Mapping)
+
+- Maps Java objects (entities) to database tables.
+- Allows working with objects instead of raw SQL.
+- **Popular ORM frameworks:** Hibernate, EclipseLink, OpenJPA.
+
+---
+
+### JPA (Java Persistence API)
+
+- **JPA is a specification**, not a framework.
+- Defines interfaces and rules for ORM in Java.
+- Needs an implementation (like Hibernate).
+- **Benefits:**  
+  - Standardized API for data persistence.
+  - Easy to switch ORM providers (Hibernate, EclipseLink, etc.).
+
+---
+
+### Spring Data JPA
+
+- **Spring Data JPA** is a Spring framework that builds on JPA.
+- Provides repository interfaces (`CrudRepository`, `JpaRepository`, `PagingAndSortingRepository`) for easy CRUD and query operations.
+- Internally uses JPA, which uses an ORM (like Hibernate), which uses JDBC for actual DB access.
+
+**Data Access Flow:**
+```
+Your Code (Repository) → Spring Data JPA → JPA (API) → Hibernate (ORM) → JDBC → Database
+```
+
+---
+
+### Why Use Spring Data JPA?
+
+- Eliminates boilerplate code for CRUD operations.
+- Supports custom queries and pagination.
+- Integrates seamlessly with Spring Boot.
+- Makes switching databases and ORM providers easier.
+
+---
+
+**Summary:**  
+Spring Data JPA abstracts away the complexity of JDBC and ORM, letting you focus on business logic while providing a standardized, efficient way to interact with relational databases in Spring Boot applications.
+
+---
+
+
+---
+
+
+---
+
+## JPA Architecture and Entity Lifecycle
+
+Understanding JPA architecture and the entity lifecycle is fundamental for building robust Spring Data JPA applications.
+
+---
+
+### What is an Entity?
+
+- An **entity** is a plain Java object (POJO) mapped to a relational database table.
+- Each field in the entity corresponds to a column in the table.
+
+**Example:**
+```java
+@Entity
+public class Product {
+    @Id
+    private Long id;
+    private String name;
+    private Double price;
+    private String description;
+    // getters and setters
+}
+```
+
+---
+
+### JPA Architecture Overview
+
+```
++---------------------+
+|  EntityManager      |  ← Manages entity operations (persist, find, remove, merge)
++---------------------+
+          |
+          v
++---------------------+
+| PersistenceContext  |  ← First-level cache for managed entities
++---------------------+
+          |
+          v
++---------------------+
+| JPA Provider        |  ← Hibernate, EclipseLink, etc. (implements JPA spec)
++---------------------+
+          |
+          v
++---------------------+
+|   Database          |  ← Actual relational DB (MySQL, PostgreSQL, etc.)
++---------------------+
+```
+
+- **EntityManager:** Main interface for interacting with entities (persist, find, remove, merge).
+- **EntityManagerFactory:** Creates EntityManager instances (one per app, managed by Spring Boot).
+- **PersistenceContext:** In-memory cache for managed entities; tracks changes and synchronizes with the database.
+- **JPA Provider:** Implementation of JPA (e.g., Hibernate) that generates SQL and interacts with the DB.
+- **Transactions:** EntityManager manages transactions to ensure data consistency.
+
+---
+
+### Entity Lifecycle States
+
+Entities transition through four main states:
+
+```
+[Transient] → [Managed] → [Removed]
+      |           |           ^
+      |           v           |
+      +-------> [Detached] ---+
+```
+
+| State         | Description                                                                                   | How to Enter/Exit                |
+|---------------|----------------------------------------------------------------------------------------------|-----------------------------------|
+| **Transient** | New entity, not associated with EntityManager or DB                                          | `new Entity()`                    |
+| **Managed**   | Entity is tracked by EntityManager and PersistenceContext; changes auto-synced to DB         | `persist()`, `find()`, `merge()`  |
+| **Detached**  | Entity was managed, but EntityManager is closed or entity is detached                        | `detach()`, `close()`, serialization |
+| **Removed**   | Entity marked for deletion; will be deleted from DB on commit                                | `remove()`                        |
+
+---
+
+#### Entity Lifecycle Example
+
+```java
+// 1. Transient
+Product product = new Product(); // Not in DB or PersistenceContext
+
+// 2. Managed (Persistent)
+entityManager.persist(product); // Now managed, tracked, and will be saved to DB
+
+// 3. Detached
+entityManager.detach(product); // No longer tracked; changes won't be saved
+
+// 4. Removed
+entityManager.remove(product); // Marked for deletion; deleted on transaction commit
+```
+
+- **find()**: Retrieves and manages an entity from the DB.
+- **merge()**: Re-attaches a detached entity, making it managed again.
+
+---
+
+### Summary Table: Entity States
+
+| State         | In PersistenceContext? | In Database? | How to Enter                | How to Exit                |
+|---------------|:---------------------:|:------------:|-----------------------------|----------------------------|
+| Transient     | No                    | No           | `new Entity()`              | `persist()`                |
+| Managed       | Yes                   | Yes/No       | `persist()`, `find()`, `merge()` | `detach()`, `remove()`, `close()` |
+| Detached      | No                    | Yes/No       | `detach()`, `close()`, serialization | `merge()`                  |
+| Removed       | Yes (until commit)    | No (after commit) | `remove()`                | Transaction commit         |
+
+---
+
+### Key Points
+
+- **EntityManager** is central to all entity operations.
+- **PersistenceContext** acts as a first-level cache for managed entities.
+- **JPA Provider** (like Hibernate) handles SQL generation and DB interaction.
+- Entities move through **transient**, **managed**, **detached**, and **removed** states.
+- Understanding these states is crucial for effective data management and avoiding bugs.
+
+---
+
+---
+
+
+---
+
+## Spring Data JPA: Practical Implementation Guide
+
+This section covers the hands-on implementation of Spring Data JPA in a Spring Boot application, including entity creation, repository usage, and the differences between repository interfaces.
+
+---
+
+### 1. Project Setup
+
+- Use [Spring Initializr](https://start.spring.io/) to create a new project.
+- Add dependencies:
+  - **Spring Web**
+  - **Spring Data JPA**
+  - **H2 Database** (for in-memory demo/testing)
+
+---
+
+### 2. Creating Entities
+
+- Annotate your Java class with `@Entity` to map it to a database table.
+- Use `@Id` for the primary key and `@GeneratedValue` for auto-generation.
+
+**Example:**
+```java
+@Entity
+public class Applicant {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+    private String name;
+    private String status;
+    // getters and setters
+}
+```
+
+---
+
+### 3. Creating a Repository
+
+- Create an interface extending one of Spring Data’s repository interfaces.
+
+**CrudRepository Example:**
+```java
+public interface ApplicantRepository extends CrudRepository<Applicant, Long> {
+    // Inherits save(), findAll(), findById(), deleteById(), etc.
+}
+```
+
+---
+
+### 4. Using the Repository
+
+- Inject the repository into your service or controller and use its methods.
+
+**Example:**
+```java
+@Service
+public class ApplicantService {
+    @Autowired
+    private ApplicantRepository applicantRepository;
+
+    public Applicant saveApplicant(Applicant applicant) {
+        return applicantRepository.save(applicant);
+    }
+
+    public Iterable<Applicant> getAllApplicants() {
+        return applicantRepository.findAll();
+    }
+}
+```
+
+---
+
+### 5. H2 Console Setup
+
+- Enable the H2 console in `application.properties`:
+  ```properties
+  spring.h2.console.enabled=true
+  spring.datasource.url=jdbc:h2:mem:testdb
+  ```
+- Access the console at `/h2-console` to view and query your data.
+
+---
+
+### 6. Repository Hierarchy and Differences
+
+| Interface                   | Extends                       | Key Features                         |
+|-----------------------------|-------------------------------|--------------------------------------|
+| **CrudRepository**          | -                             | Basic CRUD (save, findAll, delete)   |
+| **PagingAndSortingRepository** | CrudRepository (Spring Data < 3.0) | Adds pagination and sorting      |
+| **JpaRepository**           | PagingAndSortingRepository, ListCrudRepository (Spring Data 3.0+) | Adds JPA-specific methods, flush, batch, etc. |
+| **ListCrudRepository**      | - (Spring Data 3.0+)          | Like CrudRepository, but findAll() returns List |
+| **ListPagingAndSortingRepository** | - (Spring Data 3.0+)    | Like PagingAndSortingRepository, but findAll() returns List |
+
+**Note:**  
+- In Spring Data 3.0+, `PagingAndSortingRepository` no longer extends `CrudRepository`.
+- Use `ListCrudRepository` and `ListPagingAndSortingRepository` for `List` return types.
+
+---
+
+### 7. Pagination Example
+
+**Repository:**
+```java
+public interface ApplicantRepository extends PagingAndSortingRepository<Applicant, Long> {}
+```
+
+**Usage:**
+```java
+Page<Applicant> page = applicantRepository.findAll(PageRequest.of(0, 10)); // First page, 10 items
+List<Applicant> applicants = page.getContent();
+```
+
+---
+
+### 8. JpaRepository and Query Methods
+
+- `JpaRepository` combines all CRUD, pagination, sorting, and JPA-specific features.
+- Supports **query methods**: define custom queries by method name.
+
+**Example:**
+```java
+public interface ApplicantRepository extends JpaRepository<Applicant, Long> {
+    List<Applicant> findByStatus(String status); // Custom query method
+
+    @Query("SELECT a FROM Applicant a WHERE a.name LIKE %:keyword%")
+    List<Applicant> searchByName(@Param("keyword") String keyword);
+
+}
+
+@Query allows you to write custom JPQL or native SQL queries.
+Use @Param to bind method parameters to query parameters.
+```
+
+---
+
+### Summary Table: Repository Interfaces
+
+| Interface                        | findAll() Returns | Pagination | Sorting | JPA Features | Version (Spring Data) |
+|-----------------------------------|------------------|------------|---------|--------------|----------------------|
+| CrudRepository                    | Iterable         | No         | No      | No           | All                  |
+| PagingAndSortingRepository        | Iterable         | Yes        | Yes     | No           | < 3.0                |
+| ListCrudRepository                | List             | No         | No      | No           | 3.0+                 |
+| ListPagingAndSortingRepository    | List             | Yes        | Yes     | No           | 3.0+                 |
+| JpaRepository                     | List             | Yes        | Yes     | Yes          | All                  |
+
+---
+
+**Key Takeaways:**
+- Use `@Entity` and `@Id` to map Java objects to tables.
+- Choose the right repository interface for your needs (CRUD, paging, JPA features).
+- Use query methods for custom queries.
+- In Spring Data 3.0+, prefer `ListCrudRepository` and `ListPagingAndSortingRepository` for `List` results.
+
+---
+
+
+---
+
+## Spring Data JPA Relationships: @OneToOne Mapping
+
+Spring Data JPA supports defining relationships between entities, allowing you to model real-world associations in your database.
+
+---
+
+### Types of Relationships
+
+- **One-to-One:** Each entity instance is related to one instance of another entity.
+- **One-to-Many:** One entity relates to multiple instances of another entity.
+- **Many-to-One:** Many entities relate to one instance of another entity.
+- **Many-to-Many:** Multiple entities relate to multiple instances of another entity.
+
+---
+
+### One-to-One Relationship Example
+
+Suppose you have `Applicant` and `Resume` entities, where each applicant has one resume.
+
+**Entities:**
+```java
+@Entity
+public class Applicant {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "resume_id", referencedColumnName = "id")
+    private Resume resume;
+    // getters and setters
+}
+
+@Entity
+public class Resume {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String summary;
+    // getters and setters
+}
+```
+
+- `@OneToOne`: Establishes a one-to-one relationship.
+- `@JoinColumn`: Specifies the foreign key column in the `Applicant` table.
+- `cascade = CascadeType.ALL`: Automatically saves/deletes the related `Resume` when the `Applicant` is saved/deleted.
+
+---
+
+### Bidirectional Mapping
+
+To allow navigation from both sides (Applicant ↔ Resume):
+
+**Resume Entity:**
+```java
+@Entity
+public class Resume {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String summary;
+
+    @OneToOne(mappedBy = "resume")
+    @JsonIgnore // Prevents infinite loop during JSON serialization
+    private Applicant applicant;
+    // getters and setters
+}
+```
+
+- `mappedBy = "resume"`: Indicates that `Applicant` owns the relationship.
+- `@JsonIgnore`: Prevents infinite recursion during JSON serialization.
+
+---
+
+### Common Issues & Solutions
+
+- **PropertyValueException:** Occurs if the foreign key is null when saving. Ensure both sides of the relationship are set.
+- **Infinite Loop in JSON Serialization:** Happens with bidirectional relationships. Fix by using `@JsonIgnore` on one side.
+
+---
+
+### Summary
+
+- Use `@OneToOne` and `@JoinColumn` to define one-to-one relationships.
+- Use `cascade = CascadeType.ALL` for automatic persistence of related entities.
+- For bidirectional mapping, use `mappedBy` and `@JsonIgnore` to avoid serialization issues.
+
+---
+
+
+---
+
+## Spring Data JPA Relationships: One-to-Many, Many-to-One, Many-to-Many
+
+Spring Data JPA allows you to model real-world relationships between entities using annotations.
+
+---
+
+### One-to-Many and Many-to-One
+
+- **One-to-Many:** One entity instance is related to multiple instances of another entity.
+- **Many-to-One:** Many entities relate to one instance of another entity (inverse of One-to-Many).
+
+**Example:** An `Applicant` can have multiple `Application`s.
+
+```java
+@Entity
+public class Applicant {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+
+    @OneToMany(mappedBy = "applicant", cascade = CascadeType.ALL)
+    @JsonIgnore // Prevents infinite loop during JSON serialization
+    private List<Application> applications;
+    // getters and setters
+}
+
+@Entity
+public class Application {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String jobTitle;
+
+    @ManyToOne
+    @JoinColumn(name = "applicant_id")
+    private Applicant applicant;
+    // getters and setters
+}
+```
+- `@OneToMany(mappedBy = "applicant")`: Applicant has many applications.
+- `@ManyToOne`: Each application belongs to one applicant.
+- `@JsonIgnore`: Prevents infinite recursion during JSON serialization.
+
+---
+
+### Many-to-Many
+
+- **Many-to-Many:** Multiple entities relate to multiple instances of another entity.
+- **Example:** Applicants can apply for multiple jobs, and each job can have multiple applicants.
+
+```java
+@Entity
+public class Applicant {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+
+    @ManyToMany
+    @JoinTable(
+        name = "applicant_job",
+        joinColumns = @JoinColumn(name = "applicant_id"),
+        inverseJoinColumns = @JoinColumn(name = "job_id")
+    )
+    @JsonIgnore // Prevents infinite loop during JSON serialization
+    private List<Job> jobs;
+    // getters and setters
+}
+
+@Entity
+public class Job {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String title;
+
+    @ManyToMany(mappedBy = "jobs")
+    @JsonIgnore // Prevents infinite loop during JSON serialization
+    private List<Applicant> applicants;
+    // getters and setters
+}
+```
+- `@ManyToMany`: Defines the many-to-many relationship.
+- `@JoinTable`: Specifies the join table and foreign keys.
+- `mappedBy`: Indicates the owning side of the relationship.
+- `@JsonIgnore`: Prevents infinite recursion in bidirectional relationships.
+
+---
+
+### Common Issues & Solutions
+
+- **Infinite Loop in JSON Serialization:** Use `@JsonIgnore` on one side of the relationship.
+- **Join Table:** For many-to-many, always define a join table with `@JoinTable`.
+
+---
+
+**Summary:**  
+- Use `@OneToMany`/`@ManyToOne` for parent-child relationships.
+- Use `@ManyToMany` and `@JoinTable` for complex associations.
+- Always handle JSON serialization issues in bidirectional relationships.
+
+---
+
+---
+
+## Spring Interceptors in Spring Boot
+
+**Interceptors** in Spring MVC are used to handle cross-cutting concerns (like logging, authentication, etc.) by intercepting HTTP requests and responses as they flow between the DispatcherServlet and controllers.
+
+---
+
+### What are Interceptors?
+
+- Interceptors allow you to:
+  - Modify incoming requests **before** they reach the controller (`preHandle`)
+  - Modify responses **after** the controller processes the request but **before** the response is sent (`postHandle`)
+  - Perform cleanup **after** the response is sent (`afterCompletion`)
+- Example use case: Convert numeric user IDs to UUIDs before reaching controllers, avoiding changes in multiple APIs.
+
+---
+
+### Implementing a HandlerInterceptor
+
+**Step 1: Create the Interceptor**
+
+```java
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
+@Component
+public class LoggingInterceptor implements HandlerInterceptor {
+
+    // Called before the controller method
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
+        System.out.println("PreHandle: " + request.getRequestURI());
+        // Modify request or perform checks (e.g., authentication)
+        return true; // Continue processing
+    }
+
+    // Called after controller method, before view rendering
+    @Override
+    public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
+                           org.springframework.web.servlet.ModelAndView modelAndView) {
+        System.out.println("PostHandle: " + request.getRequestURI());
+        // Modify response or add attributes
+    }
+
+    // Called after the complete request has finished
+    @Override
+    public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+        System.out.println("AfterCompletion: " + request.getRequestURI());
+        // Cleanup resources
+    }
+}
+```
+
+**Step 2: Register the Interceptor**
+
+```java
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+@Configuration
+public class WebConfig implements WebMvcConfigurer {
+
+    @Autowired
+    private LoggingInterceptor loggingInterceptor;
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(loggingInterceptor)
+                .addPathPatterns("/api/**")      // Include these URL patterns
+                .excludePathPatterns("/api/public/**"); // Exclude these patterns
+    }
+}
+```
+
+---
+
+### Interceptor vs. Filter
+
+| Aspect         | Interceptor (Spring MVC)                  | Filter (Servlet API)                |
+|----------------|-------------------------------------------|-------------------------------------|
+| **Scope**      | Spring MVC layer (after DispatcherServlet)| Servlet container (before Spring)   |
+| **Access Beans** | Yes (can use Spring Beans)              | No (cannot use Spring Beans directly)|
+| **Use Case**   | Logging, authentication, request/response modification | Low-level tasks (encoding, CORS)   |
+| **Order**      | After filters, before controllers         | Before DispatcherServlet            |
+
+---
+
+**Summary:**  
+- Use **Interceptors** for Spring MVC-specific cross-cutting concerns with access to Spring Beans.
+- Use **Filters** for generic, low-level request/response processing.
+
+---
+
+
 ## Spring Boot Layered Architecture
 
 ### What is Layered Architecture?

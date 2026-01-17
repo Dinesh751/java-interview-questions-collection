@@ -1396,3 +1396,53 @@ public class ProductController {
 ---
 
 # End of Interview Questions Document
+
+
+
+
+
+### How @Transactional Works (AOP)
+
+Spring uses **AOP (Aspect-Oriented Programming)** to implement `@Transactional`. When you annotate a method with `@Transactional`, Spring creates a **proxy** around your bean and applies an "around advice" using its internal `TransactionInterceptor`.
+
+**How it works:**
+- The proxy intercepts calls to methods annotated with `@Transactional`.
+- Before the method runs, `TransactionInterceptor` starts a transaction.
+- Executes your business logic.
+- Commits the transaction if successful, or rolls back if an exception occurs.
+
+**Spring's Internal AOP Code (Simplified):**
+```java
+// Inside Spring Framework: TransactionInterceptor.java
+@Around("@annotation(org.springframework.transaction.annotation.Transactional)")
+public Object invokeWithinTransaction(ProceedingJoinPoint joinPoint) throws Throwable {
+    TransactionStatus tx = transactionManager.getTransaction(definition);
+    try {
+        Object result = joinPoint.proceed();  // Execute actual method
+        transactionManager.commit(tx);
+        return result;
+    } catch (RuntimeException | Error ex) {
+        transactionManager.rollback(tx);
+        throw ex;
+    }
+}
+```
+
+**Proxy Types:**
+- **JDK Dynamic Proxy**: If bean implements an interface.
+- **CGLIB Proxy**: If bean is a class without interface.
+
+**Diagram:**
+```
+Client → [Proxy] → TransactionInterceptor
+           |         |
+           |         └─ Transaction started (@Around advice)
+           |         └─ Business logic executed
+           |         └─ Commit or rollback
+           └─ Returns result
+```
+
+**Key Points:**
+- Works only on public methods.
+- Rollback happens on unchecked exceptions by default.
+- Self-invocation (calling another transactional method from the same class) won’t trigger a transaction.
