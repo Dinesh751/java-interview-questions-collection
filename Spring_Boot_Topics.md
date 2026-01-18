@@ -13474,6 +13474,622 @@ public ResponseEntity<String> registerByAdmin(@RequestBody RegisterUserRequest r
 
 ---
 
+---
+
+---
+
+### OAuth 2.0 Flow Diagram
+
+```
++-------------------+                     +-----------------------+
+|                   |                     |                       |
+|   Resource Owner  |                     |  Authorization Server |
+|  (User)           |                     |  (e.g., Google Login) |
+|                   |                     |                       |
++-------------------+                     +-----------------------+
+         |                                         ^
+         |                                         |
+         | 1. Initiates Login Request              |
+         |---------------------------------------->|
+         |                                         |
+         |                                         |
+         | 2. Redirects User to Authorization Page |
+         |<----------------------------------------|
+         |                                         |
+         |                                         |
+         | 3. User Logs In and Grants Permissions  |
+         |---------------------------------------->|
+         |                                         |
+         |                                         |
+         | 4. Returns Authorization Code           |
+         |<----------------------------------------|
+         |                                         |
+         |                                         |
++-------------------+                     +-----------------------+
+|                   |                     |                       |
+|      Client       |                     |   Resource Server     |
+| (Third-Party App) |                     | (e.g., Google API)    |
+|                   |                     |                       |
++-------------------+                     +-----------------------+
+         |                                         ^
+         |                                         |
+         | 5. Sends Authorization Code            |
+         |---------------------------------------->|
+         |                                         |
+         |                                         |
+         | 6. Returns Access Token                |
+         |<----------------------------------------|
+         |                                         |
+         |                                         |
+         | 7. Uses Access Token to Fetch Data      |
+         |---------------------------------------->|
+         |                                         |
+         |                                         |
+         | 8. Returns Protected Resources          |
+         |<----------------------------------------|
+         |                                         |
+```
+
+---
+
+### Explanation of the Flow:
+
+1. **User Initiates Login Request:** The user (resource owner) starts the login process on the client (e.g., Eraser app).
+2. **Redirect to Authorization Server:** The client redirects the user to the authorization server (e.g., Google login page).
+3. **User Logs In and Grants Permissions:** The user logs in and grants the client permission to access specific resources.
+4. **Authorization Code Returned:** The authorization server returns an authorization code to the client.
+5. **Client Sends Authorization Code:** The client sends the authorization code to the resource server (e.g., Google API).
+6. **Access Token Returned:** The resource server validates the code and returns an access token to the client.
+7. **Client Fetches Data:** The client uses the access token to request the user's data from the resource server.
+8. **Protected Resources Returned:** The resource server returns the requested data to the client.
+
+---
+
+### Key Roles in OAuth 2.0:
+
+- **Resource Owner:** The user who owns the protected resources (e.g., their Google data).
+- **Client:** The third-party application requesting access to the protected resources (e.g., Eraser app).
+- **Authorization Server:** The server that authenticates the resource owner and issues authorization (e.g., Google's authentication system).
+---
+
+---
+
+---
+
+---
+
+## Google OAuth2 Login with Spring Boot and Spring Security
+
+This guide explains how to implement Google OAuth2 login in a Spring Boot application using Spring Security 6.1+.
+
+---
+
+### Key Steps
+
+#### 1. **Create a Spring Boot Application**
+- Use **Spring Initializr** to create a Maven project.
+- Add the following dependencies:
+  - `spring-boot-starter-web`
+  - `spring-boot-starter-security`
+  - `spring-boot-starter-oauth2-client`
+
+---
+
+#### 2. **Enable OAuth in Security Filter Chain**
+- Create a `SecurityConfig` class to define the `SecurityFilterChain` bean.
+- Use `oauth2Login(Customizer.withDefaults())` to enable OAuth2 authentication.
+
+**Example:**
+```java
+@Configuration
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/public/**").permitAll() // Public API
+                .anyRequest().authenticated() // Secure other APIs
+            )
+            .oauth2Login(Customizer.withDefaults()); // Enable OAuth2 login
+        return http.build();
+    }
+}
+```
+
+---
+
+#### 3. **Add OAuth Configuration in `application.yml`**
+- Add client registration details for Google OAuth2.
+
+**Example:**
+```yaml
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: YOUR_CLIENT_ID
+            client-secret: YOUR_CLIENT_SECRET
+            scope: openid, profile, email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+```
+
+---
+
+#### 4. **Generate OAuth2 Client on Google Cloud**
+- Go to **Google Cloud Console** and create a new project.
+- Navigate to **APIs & Services → Credentials** and create an "OAuth client ID" of type "Web application."
+- Add the redirect URI: `http://localhost:8080/login/oauth2/code/google`.
+- Copy the generated `client-id` and `client-secret` into the `application.yml` file.
+
+---
+
+#### 5. **Run and Test the Application**
+- Start the application and test the APIs:
+  - Accessing a public API (e.g., `/public`) works without authentication.
+  - Accessing a private API redirects to the Google sign-in page.
+- After signing in and granting permissions, the user is authenticated and can access the private API.
+
+---
+
+### Debugging OAuth2 Flow in Spring Security
+
+- **OAuth2LoginAuthenticationFilter** intercepts requests and delegates to `AuthenticationManager`.
+- **OAuth2LoginAuthenticationProvider** handles authentication with Google.
+- **DefaultOAuth2UserService** fetches user details (e.g., email, name) from Google.
+- The authenticated user is stored in an `OAuth2AuthenticationToken` object.
+
+---
+
+### Summary
+
+- **OAuth2 Login:** Simplifies authentication by delegating to Google.
+- **Spring Security Integration:** Handles the OAuth2 flow with minimal configuration.
+- **Debugging:** Use breakpoints to inspect the `OAuth2LoginAuthenticationFilter` and `OAuth2AuthenticationToken`.
+
+---
+
+---
+
+---
+
+---
+
+## Spring Boot Events: Publisher-Subscriber Design Pattern
+
+Spring Boot Events leverage the **Publisher-Subscriber (Pub-Sub)** design pattern to enable loose coupling between components, making applications more scalable and maintainable.
+
+---
+
+### Benefits of Pub-Sub
+
+- **Loose Coupling:** Publishers and subscribers are decoupled, reducing dependencies.
+- **Separation of Concerns:** Each component focuses on its specific task.
+- **Scalability:** New subscribers can be added without modifying the publisher.
+
+**Example Use Case:**  
+An **Order Service** publishes an event when a new order is created.  
+Subscribers (e.g., Email Notification Service, Logging Service) listen for the event and perform their respective tasks independently.
+
+---
+
+### Implementation Steps
+
+#### 1. Define a Custom Event Class
+
+Create a class that extends `ApplicationEvent` or use a POJO.
+
+```java
+public class OrderCreatedEvent {
+    private final String orderId;
+
+    public OrderCreatedEvent(String orderId) {
+        this.orderId = orderId;
+    }
+
+    public String getOrderId() {
+        return orderId;
+    }
+}
+```
+
+---
+
+#### 2. Publish Events in the Service Layer
+
+Use `ApplicationEventPublisher` to publish events.
+
+```java
+@Service
+public class OrderService {
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
+    public void createOrder(String orderId) {
+        // Business logic for creating an order
+        System.out.println("Order created: " + orderId);
+
+        // Publish the event
+        eventPublisher.publishEvent(new OrderCreatedEvent(orderId));
+    }
+}
+```
+
+---
+
+#### 3. Create Event Listeners
+
+Use the `@EventListener` annotation to handle events.
+
+```java
+@Component
+public class EmailNotificationListener {
+
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("Sending email for order: " + event.getOrderId());
+    }
+}
+
+@Component
+public class LoggingListener {
+
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("Logging order creation: " + event.getOrderId());
+    }
+}
+```
+
+---
+
+### Testing the Implementation
+
+1. Call the `createOrder` method in `OrderService` with an order ID.
+2. Observe the logs:
+   - **OrderService:** Logs the order creation.
+   - **EmailNotificationListener:** Logs the email notification.
+   - **LoggingListener:** Logs the order creation event.
+
+**Example Output:**
+```
+Order created: 12345
+Sending email for order: 12345
+Logging order creation: 12345
+```
+
+---
+
+### Summary
+
+- **Publisher-Subscriber Pattern:** Decouples components for better scalability.
+- **Custom Event Class:** Represents the event data.
+- **ApplicationEventPublisher:** Publishes events.
+- **@EventListener:** Subscribes to and handles events.
+
+Spring Boot Events simplify implementing the Pub-Sub pattern, making it easy to build scalable and maintainable applications.
+
+---
+
+---
+
+---
+
+## Internal Working of Spring Boot Events
+
+Spring Boot Events leverage the **ApplicationEventPublisher** and **ApplicationEventMulticaster** to implement the publish-subscribe design pattern. This section explains the internal architecture and flow of Spring Boot events.
+
+---
+
+### Recap of Pub-Sub Pattern
+
+- **Publisher:** Fires an event (e.g., `OrderCreatedEvent`) using `ApplicationEventPublisher`.
+- **Listeners:** Consume the event using `@EventListener` or by implementing `ApplicationListener`.
+
+---
+
+### Architecture and Internal Working
+
+1. **Event Publishing:**
+   - When an event is published using `ApplicationEventPublisher`, it delegates the event to the `ApplicationEventMulticaster`.
+
+2. **Event Multicasting:**
+   - The `ApplicationEventMulticaster` is responsible for finding all relevant listeners for the event.
+   - At startup, Spring scans for `@EventListener` methods and stores them as `ApplicationListener` objects in an **internal listener cache**.
+
+3. **Listener Invocation:**
+   - When an event is published, the `ApplicationEventMulticaster` queries its cache using the event type as the key.
+   - It retrieves all registered listeners for the event and invokes them **synchronously** by default.
+
+---
+
+### Diagram: ApplicationEventMulticaster Architecture
+
+```
++---------------------------+
+|   ApplicationEventPublisher   |
+|         (Publisher)           |
++---------------------------+
+              |
+              v
++---------------------------------+         +------------------------------+
+|   ApplicationEventMulticaster   |         | Internal Cache               |
+|         (Event Dispatcher)      |  <----- | Key: eventType,              |
++---------------------------------+         |  Value: List event Listeners |                            
+              |                             +------------------------------+
+              v
++---------------------------+
+|   Registered Listeners    |
+|  (e.g., EmailNotification |
+|   Listener, LoggingListener) |
++---------------------------+
+```
+
+---
+
+### Key Components
+
+1. **ApplicationEventPublisher:**
+   - Used by the publisher (e.g., `OrderService`) to fire events.
+
+2. **ApplicationEventMulticaster:**
+   - Delegates the event to all relevant listeners.
+   - Maintains an internal cache of listeners, where:
+     - **Key:** Event type (e.g., `OrderCreatedEvent`).
+     - **Value:** List of listeners for that event.
+
+3. **Listener Cache:**
+   - Built at startup by scanning for `@EventListener` methods.
+   - Stores listeners as `ApplicationListener` objects.
+
+4. **Listeners:**
+   - Methods annotated with `@EventListener` or classes implementing `ApplicationListener`.
+
+---
+
+### Synchronous vs. Asynchronous Dispatching
+
+- **Synchronous (Default):**
+  - All listeners are invoked on the same thread before the `publishEvent()` call returns.
+- **Asynchronous:**
+  - Use the `@Async` annotation to make listener invocation asynchronous.
+
+---
+
+### Debugging the Flow
+
+1. **Event Publishing:**
+   - `publishEvent()` in `AbstractApplicationContext` is called.
+2. **Multicaster Query:**
+   - The `ApplicationEventMulticaster` queries its listener cache for the event type.
+3. **Listener Invocation:**
+   - Each listener is invoked in sequence (synchronously by default).
+
+---
+
+### Summary
+
+- **ApplicationEventPublisher:** Fires events.
+- **ApplicationEventMulticaster:** Dispatches events to listeners.
+- **Listener Cache:** Stores event-to-listener mappings.
+- **Synchronous by Default:** All listeners are invoked on the same thread.
+
+Spring Boot Events provide a powerful way to implement the pub-sub pattern, with the `ApplicationEventMulticaster` handling the complexity of listener management and invocation.
+
+---
+
+---
+
+
+---
+
+---
+
+## Advanced Features in Spring EventListeners
+
+Spring EventListeners provide powerful features beyond basic event handling, enabling fine-grained control over event processing. This section explores advanced features such as ordering, asynchronous execution, conditional listeners, and global exception handling.
+
+---
+
+### 1. Order in Listeners
+
+**Purpose:**  
+Control the execution order of multiple event listeners for the same event.
+
+**Implementation:**
+- Use the `@Order` annotation to specify the order in which listeners should execute.
+- Lower values indicate higher priority (e.g., `@Order(1)` runs before `@Order(2)`).
+
+**Example:**
+```java
+@Component
+@Order(1)
+public class HighPriorityListener {
+
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("High-priority listener executed first");
+    }
+}
+
+@Component
+@Order(2)
+public class LowPriorityListener {
+
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("Low-priority listener executed second");
+    }
+}
+```
+
+**Output:**
+```
+High-priority listener executed first
+Low-priority listener executed second
+```
+
+---
+
+### 2. Async Event Listeners
+
+**Purpose:**  
+Run event listeners in parallel using separate threads to improve performance.
+
+**Implementation:**
+- Annotate the listener method with `@Async`.
+- Enable asynchronous execution by adding `@EnableAsync` to a configuration class.
+
+**Example:**
+```java
+@Configuration
+@EnableAsync
+public class AsyncConfig {
+    // Enables asynchronous execution
+}
+
+@Component
+public class AsyncListener {
+
+    @Async
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("Async listener executed in thread: " + Thread.currentThread().getName());
+    }
+}
+```
+
+**Output:**
+```
+Async listener executed in thread: pool-1-thread-1
+```
+
+**Key Points:**
+- Asynchronous listeners run in separate threads.
+- Ensure thread safety when accessing shared resources.
+
+---
+
+### 3. Order & Async Together
+
+**Purpose:**  
+Combine `@Order` and `@Async` to control the order in which tasks are submitted to the executor, while still running listeners asynchronously.
+
+**Example:**
+```java
+@Component
+@Order(1)
+public class FirstAsyncListener {
+
+    @Async
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("First async listener executed");
+    }
+}
+
+@Component
+@Order(2)
+public class SecondAsyncListener {
+
+    @Async
+    @EventListener
+    public void handleOrderCreatedEvent(OrderCreatedEvent event) {
+        System.out.println("Second async listener executed");
+    }
+}
+```
+
+**Key Points:**
+- `@Order` determines the order in which tasks are submitted to the executor.
+- Listeners still run asynchronously in separate threads.
+
+---
+
+### 4. Conditional Listener
+
+**Purpose:**  
+Invoke a listener only when a specific condition is met using Spring Expression Language (SpEL).
+
+**Implementation:**
+- Use the `condition` attribute in `@EventListener` to specify the condition.
+
+**Example:**
+```java
+@Component
+public class ConditionalListener {
+
+    @EventListener(condition = "#event.orderAmount > 1000")
+    public void handleHighValueOrder(OrderCreatedEvent event) {
+        System.out.println("High-value order processed: " + event.getOrderAmount());
+    }
+}
+```
+
+**Key Points:**
+- The condition is evaluated using SpEL.
+- The listener is invoked only if the condition evaluates to `true`.
+
+---
+
+### 5. Global Exception Handling in Listeners
+
+**Purpose:**  
+Centralize error handling for event listeners by overriding the `ApplicationEventMulticaster` bean.
+
+**Implementation:**
+- Provide a custom `ApplicationEventMulticaster` bean with a global exception handler.
+
+**Example:**
+```java
+@Configuration
+public class EventConfig {
+
+    @Bean(name = "applicationEventMulticaster")
+    public ApplicationEventMulticaster applicationEventMulticaster() {
+        SimpleApplicationEventMulticaster multicaster = new SimpleApplicationEventMulticaster();
+        multicaster.setErrorHandler(throwable -> {
+            System.err.println("Global error handler caught exception: " + throwable.getMessage());
+        });
+        return multicaster;
+    }
+}
+```
+
+**Key Points:**
+- Avoids the need for individual try-catch blocks in each listener.
+- Handles exceptions globally for all listeners.
+
+---
+
+### Summary
+
+- **Order in Listeners:** Use `@Order` to control execution order.
+- **Async Listeners:** Use `@Async` for parallel execution in separate threads.
+- **Order & Async Together:** Combine `@Order` and `@Async` for ordered task submission with asynchronous execution.
+- **Conditional Listeners:** Use SpEL in `@EventListener` to invoke listeners conditionally.
+- **Global Exception Handling:** Override `ApplicationEventMulticaster` to centralize error handling.
+
+These advanced features make Spring EventListeners more flexible, scalable, and maintainable for complex applications.
+
+---
+
+---
+
+
+
+
+---
+
 
 ## Spring Boot Layered Architecture
 
