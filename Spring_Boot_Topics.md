@@ -12995,9 +12995,482 @@ public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter 
 
 ---
 
+## Spring Security: Authorization Architecture
+
+Authorization in Spring Security determines what an authenticated user can do within an application, ensuring users only access what they are permitted to.
+
+---
+
+### Key Concepts
+
+- **Authentication vs. Authorization:**
+  - **Authentication:** Verifies *who you are* (e.g., username/password).
+  - **Authorization:** Determines *what you can do* (e.g., access control to resources).
+
+- **Roles:**
+  - High-level categorization of users (e.g., `RO_ADMIN`, `RO_USER`).
+  - Spring Security expects roles to be prefixed with `RO_` by default (customizable).
+
+- **Permissions:**
+  - Define specific actions a role can perform (e.g., `read`, `write`, `delete`).
+  - Each role can have one or more permissions attached.
+
+---
+
+### Authorization Architecture
+
+1. **Authorization Filter:**
+   - The last filter in the Spring Security filter chain.
+   - Delegates authorization checks to the `AuthorizationManager`.
+
+2. **Security Context Holder:**
+   - Stores user details after authentication.
+   - Used by the `AuthorizationManager` to validate roles and permissions.
+
+3. **Authorization Manager:**
+   - Functional interface with a `check` method to determine if a request is authorized.
+   - Common implementations:
+     - **RequestMatcherDelegatingAuthorizationManager:** Used for `requestMatchers`.
+     - **AuthorityAuthorizationManager:** Used for role-based checks.
+
+---
+
+### Authorization Flow
+
+1. **Request Interception:**
+   - The `AuthorizationFilter` intercepts the request after authentication.
+2. **Role Validation:**
+   - The `AuthorizationManager` checks if the user has the required role or permission.
+3. **Access Decision:**
+   - If the user has the required role/permission, access is granted.
+   - Otherwise, a `403 Forbidden` response is returned.
+
+---
+
+### Example: Restricting Access to `/health`
+
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/health").hasRole("ADMIN") // Restrict to RO_ADMIN
+            .anyRequest().authenticated()
+        ).addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+---
+
+### Debugging Authorization
+
+- Use tools like breakpoints or logs to inspect how the `AuthorizationFilter` and `AuthorizationManager` validate roles.
+- Common classes to debug:
+  - `RequestMatcherDelegatingAuthorizationManager`
+  - `AuthorityAuthorizationManager`
+
+---
+
+### Summary
+
+- **Roles** define user categories, while **permissions** define specific actions.
+- The `AuthorizationFilter` and `AuthorizationManager` work together to enforce access control.
+- Use `requestMatchers` and role-based checks to secure APIs.
+- Upcoming features include annotations like `@PreAuthorize` for fine-grained permission control.
+
+---
+
+---
+
+## Spring Security: Role and Permission-Based Authorization
+
+This section explains how to implement role and permission-based access control in a Spring Boot application using Spring Security.
+
+---
+
+### Key Concepts
+
+- **Roles:** High-level user categories (e.g., `ADMIN`, `USER`).
+- **Permissions:** Specific actions a role can perform (e.g., `weather_read`, `weather_write`, `weather_delete`).
+- **Authorization:** Determines what authenticated users can access based on their roles and permissions.
+
+---
+
+### Implementation Steps
+
+#### 1. Refactor String Roles into Enums
+
+Define `Permission` and `Role` enums for better management.
+
+```java
+public enum Permission {
+    WEATHER_READ("weather:read"),
+    WEATHER_WRITE("weather:write"),
+    WEATHER_DELETE("weather:delete");
+
+    private final String permission;
+
+    Permission(String permission) {
+        this.permission = permission;
+    }
+
+    public String getPermission() {
+        return permission;
+    }
+}
+
+public enum Role {
+    ADMIN(Set.of(Permission.WEATHER_READ, Permission.WEATHER_WRITE, Permission.WEATHER_DELETE)),
+    USER(Set.of(Permission.WEATHER_READ));
+
+    private final Set<Permission> permissions;
+
+    Role(Set<Permission> permissions) {
+        this.permissions = permissions;
+    }
+
+    public Set<Permission> getPermissions() {
+        return permissions;
+    }
+}
+```
+
+---
+
+#### 2. Modify `getAuthorities` Method
+
+Update the `getAuthorities` method in your `CustomUserDetails` implementation to include both roles and permissions.
+
+```java
+public class CustomUserDetails implements UserDetails {
+    private final User user;
+
+    public CustomUserDetails(User user) {
+        this.user = user;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        Set<SimpleGrantedAuthority> authorities = new HashSet<>();
+        // Add role as an authority
+        authorities.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        // Add permissions as authorities
+        user.getRole().getPermissions()
+            .forEach(permission -> authorities.add(new SimpleGrantedAuthority(permission.getPermission())));
+        return authorities;
+    }
+
+    // Other overridden methods...
+}
+```
+
+---
+
+#### 3. Configure RequestMatchers in SecurityConfig
+
+Use `requestMatchers` to enforce authorization rules based on HTTP methods, URL patterns, roles, and permissions.
+
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable())
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers(HttpMethod.GET, "/api/weather/**").hasAuthority("weather:read")
+            .requestMatchers(HttpMethod.POST, "/api/weather/**").hasAuthority("weather:write")
+            .requestMatchers(HttpMethod.DELETE, "/api/weather/**").hasAuthority("weather:delete")
+            .anyRequest().authenticated()
+        )
+        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+---
+
+#### 4. Testing with Postman
+
+- **Admin User:**  
+  - Role: `ADMIN`
+  - Permissions: `weather_read`, `weather_write`, `weather_delete`
+  - Can access all endpoints.
+
+- **Regular User:**  
+  - Role: `USER`
+  - Permissions: `weather_read`
+  - Can only access `GET /api/weather/**`.
+
+- **Testing Results:**  
+  - Valid credentials with appropriate roles/permissions grant access.
+  - Invalid credentials or insufficient permissions return `403 Forbidden`.
+
+---
+
+### Method Security (Preview)
+
+- Use `@PreAuthorize` and `@PostAuthorize` for fine-grained, method-level security.
+- Example:
+  ```java
+  @PreAuthorize("hasAuthority('weather:write')")
+  public void createWeatherData() {
+      // Method logic...
+  }
+  ```
+
+---
+
+### Summary
+
+- **Roles and Permissions:** Use enums to define and manage roles and permissions.
+- **Authorization Rules:** Configure `requestMatchers` in `SecurityConfig` to enforce access control.
+- **Testing:** Verify access control using tools like Postman.
+- **Scalability:** Consider method-level security (`@PreAuthorize`, `@PostAuthorize`) for larger applications.
+
+---
+
+---
+
 
 
 ---
+
+
+## Spring Security: Method-Level Security with Annotations
+
+Method-level security in Spring Security provides fine-grained access control for individual methods, making it a scalable alternative to URL-based authorization.
+
+---
+
+### Key Annotations for Method Security
+
+#### 1. **@PreAuthorize**
+- **Purpose:** Evaluates authorization expressions **before** method execution.
+- **How It Works:**
+  - Uses **Spring AOP** to intercept method calls.
+  - Delegates to `AuthorizationManagerBeforeMethodInterceptor` and `PreAuthorizeAuthorizationManager` to evaluate expressions.
+- **Example:**
+  ```java
+  @PreAuthorize("hasAuthority('admin:read')")
+  public String getAdminData() {
+      return "Admin Data";
+  }
+  ```
+- **Use Case:** Restrict access based on roles/permissions.
+
+---
+
+#### 2. **@PostAuthorize**
+- **Purpose:** Evaluates authorization expressions **after** method execution, often based on the returned result.
+- **Example:**
+  ```java
+  @PostAuthorize("returnObject.owner == authentication.name")
+  public Log getLog(Long id) {
+      return logService.findById(id);
+  }
+  ```
+- **Use Case:** Ensure data ownership or validate the returned object.
+
+---
+
+#### 3. **@PreFilter**
+- **Purpose:** Filters input collections **before** method execution.
+- **Example:**
+  ```java
+  @PreFilter("filterObject.owner == authentication.name")
+  public void processLogs(List<Log> logs) {
+      // Process filtered logs
+  }
+  ```
+- **Use Case:** Filter input data based on user permissions.
+
+---
+
+#### 4. **@PostFilter**
+- **Purpose:** Filters returned collections **after** method execution.
+- **Example:**
+  ```java
+  @PostFilter("filterObject.owner == authentication.name")
+  public List<Log> getAllLogs() {
+      return logService.findAll();
+  }
+  ```
+- **Use Case:** Restrict returned data to authorized users.
+
+---
+
+### Enabling Method Security
+
+1. Add `@EnableMethodSecurity` to your configuration class:
+   ```java
+   @Configuration
+   @EnableMethodSecurity
+   public class SecurityConfig {
+   }
+   ```
+
+2. Use annotations like `@PreAuthorize` or `@PostAuthorize` on methods to enforce security.
+
+---
+
+### Debugging Method Security
+
+- Use breakpoints to inspect the flow:
+  - `AuthorizationManagerBeforeMethodInterceptor` intercepts the method call.
+  - `PreAuthorizeAuthorizationManager` evaluates the expression.
+- Check logs for authorization decisions.
+
+---
+
+### Summary
+
+- **@PreAuthorize:** Checks permissions before method execution.
+- **@PostAuthorize:** Validates returned data after method execution.
+- **@PreFilter:** Filters input collections.
+- **@PostFilter:** Filters returned collections.
+- Method-level security is ideal for fine-grained access control in applications with many APIs.
+
+
+---
+
+
+---
+
+## User Management in Spring Security
+
+This section explains how to implement dynamic user management in Spring Security applications, moving beyond hardcoded data or `CommandLineRunner` for user creation.
+
+---
+
+### Key Concepts
+
+1. **Public Applications:**
+   - Users can self-register with the "USER" role.
+   - The first "ADMIN" is manually created, and existing admins can create other admins.
+
+2. **Internal Applications:**
+   - Self-registration is not allowed.
+   - Admins create both other admins and regular users.
+
+---
+
+### Implementation Steps
+
+#### 1. User Registration (Public API)
+
+**a. RegisterUserRequest DTO:**
+```java
+public class RegisterUserRequest {
+    private String username;
+    private String password;
+    private String role; // Optional for admin-created users
+    // Getters and setters
+}
+```
+
+**b. UserService:**
+```java
+@Service
+public class UserService {
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    public void registerUser(RegisterUserRequest request) {
+        if (userRepository.existsByUsername(request.getUsername())) {
+            throw new RuntimeException("User already exists");
+        }
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole("USER"); // Default role for public registration
+        userRepository.save(user);
+    }
+}
+```
+
+**c. UserController:**
+```java
+@RestController
+@RequestMapping("/api/users")
+public class UserController {
+    @Autowired
+    private UserService userService;
+
+    @PostMapping("/register")
+    public ResponseEntity<String> registerUser(@RequestBody RegisterUserRequest request) {
+        userService.registerUser(request);
+        return ResponseEntity.ok("User registered successfully");
+    }
+}
+```
+
+**d. Security Configuration:**
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable()) // Disable CSRF for APIs
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/authenticate").permitAll() // Permit access to the authentication endpoint
+            .anyRequest().authenticated() // All other requests require authentication
+        )
+        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class); // Add JwtAuthFilter before UsernamePasswordAuthenticationFilter
+
+    return http.build();
+}
+```
+
+---
+
+#### 2. Admin Registration (Secured API)
+
+**a. UserService (Admin Registration):**
+```java
+public void registerByAdmin(RegisterUserRequest request) {
+    if (userRepository.existsByUsername(request.getUsername())) {
+        throw new RuntimeException("User already exists");
+    }
+    User user = new User();
+    user.setUsername(request.getUsername());
+    user.setPassword(passwordEncoder.encode(request.getPassword()));
+    user.setRole(request.getRole()); // Role specified by admin
+    userRepository.save(user);
+}
+```
+
+**b. UserController (Admin Endpoint):**
+```java
+@PreAuthorize("hasRole('ADMIN')")
+@PostMapping("/admin/create")
+public ResponseEntity<String> registerByAdmin(@RequestBody RegisterUserRequest request) {
+    userService.registerByAdmin(request);
+    return ResponseEntity.ok("User created by admin successfully");
+}
+```
+
+---
+
+### Testing
+
+1. **Public Registration:**
+   - Endpoint: `POST /api/users/register`
+   - Role: Automatically assigned as "USER".
+   - Accessible without authentication.
+
+2. **Admin Registration:**
+   - Endpoint: `POST /api/users/admin/create`
+   - Role: Specified by the admin (e.g., "USER" or "ADMIN").
+   - Secured with `@PreAuthorize("hasRole('ADMIN')")`.
+
+---
+
+### Summary
+
+- **Public Registration:** Allows users to self-register with the "USER" role.
+- **Admin Registration:** Enables admins to create users with flexible role assignment.
+- **Dynamic User Management:** APIs replace `CommandLineRunner` for real-time user creation.
 
 ---
 
