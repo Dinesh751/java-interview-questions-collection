@@ -11857,6 +11857,1151 @@ public class WebConfig implements WebMvcConfigurer {
 ---
 
 
+---
+
+## Spring Boot Caching
+
+Caching is a technique to store frequently accessed data in a temporary storage (cache) to reduce latency and backend load, improving scalability and performance.
+
+---
+
+### Why Use Caching?
+
+- Reduces database or backend service calls for repeated requests.
+- Improves response time and application scalability.
+- Essential for handling high-traffic applications.
+
+---
+
+### Enabling Caching in Spring Boot
+
+- Add `@EnableCaching` to your main application class or a configuration class to activate Spring’s caching support.
+
+```java
+@SpringBootApplication
+@EnableCaching
+public class MyApp {
+    public static void main(String[] args) {
+        SpringApplication.run(MyApp.class, args);
+    }
+}
+```
+
+---
+
+### Core Caching Annotations
+
+- **@Cacheable:**  
+  Caches the result of a method based on its input parameters. If the same parameters are used again, the cached result is returned instead of executing the method.
+
+  ```java
+  @Cacheable(value = "products", key = "#id")
+  public Product getProductById(Long id) { 
+      // Fetch from database
+  }
+  ```
+
+- **@CachePut:**  
+  Updates the cache with the result of the method execution. Useful for keeping the cache in sync after updates.
+
+  ```java
+  @CachePut(value = "products", key = "#product.id")
+  public Product updateProduct(Product product) {
+      // Update in database
+      return product;
+  }
+  ```
+
+- **@CacheEvict:**  
+  Removes entries from the cache. Use after deleting or updating data to prevent stale cache.
+
+  ```java
+  @CacheEvict(value = "products", key = "#id")
+  public void deleteProduct(Long id) {
+      // Delete from database
+  }
+  ```
+
+---
+
+### Inspecting Cache Contents
+
+- By default, Spring Boot uses an in-memory `ConcurrentHashMap` for caching.
+- You can create a service to inspect cache contents for debugging or monitoring.
+
+---
+
+### Cache Types
+
+- **In-Memory Cache:**  
+  Default; data is stored in the application’s memory.  
+  ⚠️ Limitation: In multi-instance deployments, each instance has its own cache, which can cause inconsistencies.
+
+- **Distributed Cache:**  
+  (e.g., Redis) Used for multi-node deployments.  
+  Ensures all application instances share the same cache, maintaining consistency.
+
+---
+
+### Summary
+
+- Use `@EnableCaching` to activate caching.
+- Use `@Cacheable`, `@CachePut`, and `@CacheEvict` to manage cache entries.
+- In-memory cache is default; use distributed cache (like Redis) for scalable, consistent caching across multiple instances.
+
+---
+
+---
+
+## Spring Boot Caching with Redis
+
+Spring Boot supports distributed caching using Redis, which solves the limitations of in-memory caching in multi-node environments.
+
+---
+
+### What is Redis?
+
+- **Redis** is an in-memory, key-value data store commonly used as a distributed cache.
+- It runs as a separate server, allowing multiple application instances to share the same cache.
+- This ensures data consistency and prevents stale data issues in horizontally scaled applications.
+
+---
+
+### Running Redis with Docker
+
+Start a Redis server using Docker:
+```bash
+docker run -d --name redis-cache -p 6379:6379 redis
+```
+- Verify Redis is running:
+  ```bash
+  docker exec -it redis-cache redis-cli
+  ```
+
+---
+
+### Configuring Spring Boot for Redis Cache
+
+1. **Add Dependency** in `pom.xml`:
+   ```xml
+   <dependency>
+       <groupId>org.springframework.boot</groupId>
+       <artifactId>spring-boot-starter-data-redis</artifactId>
+   </dependency>
+   ```
+
+2. **Update `application.properties`:**
+   ```properties
+   spring.cache.type=redis
+   spring.redis.host=localhost
+   spring.redis.port=6379
+   ```
+
+---
+
+### Using Caching Annotations with Redis
+
+- **@Cacheable:** Caches method results in Redis.
+- **@CachePut:** Updates the cache in Redis after method execution.
+- **@CacheEvict:** Removes entries from the Redis cache.
+
+**Example:**
+```java
+@Cacheable(value = "products", key = "#id")
+public Product getProductById(Long id) { ... }
+
+@CachePut(value = "products", key = "#product.id")
+public Product updateProduct(Product product) { ... }
+
+@CacheEvict(value = "products", key = "#id")
+public void deleteProduct(Long id) { ... }
+
+
+
+// config/CacheManager.java
+
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.annotation.EnableCaching;
+import org.springframework.cache.redis.RedisCacheManager;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
+
+@Configuration
+@EnableCaching
+public class CacheConfig {
+
+    @Bean
+    public CacheManager cacheManager(RedisConnectionFactory redisConnectionFactory) {
+        return RedisCacheManager.builder(redisConnectionFactory)
+                .build();
+    }
+}
+
+
+//Controller
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@RestController
+@RequestMapping("/api/cache")
+public class CacheInspectorController {
+
+    @Autowired
+    private CacheManager cacheManager;
+
+    // List all cache names
+    @GetMapping("/names")
+    public Set<String> getCacheNames() {
+        return cacheManager.getCacheNames();
+    }
+
+    // Get all keys from a specific cache (works for Redis and in-memory)
+    @GetMapping("/{cacheName}/keys")
+    public List<Object> getCacheKeys(@PathVariable String cacheName) {
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache == null) return Collections.emptyList();
+
+        // For RedisCache, keys are not directly accessible via Spring's Cache API.
+        // For in-memory cache (ConcurrentMapCache), you can cast and get the native map.
+        Object nativeCache = cache.getNativeCache();
+        if (nativeCache instanceof Map) {
+            return new ArrayList<>(((Map<?, ?>) nativeCache).keySet());
+        }
+        return List.of("Key listing not supported for this cache type.");
+    }
+
+    // Get value for a specific key
+    @GetMapping("/{cacheName}/get/{key}")
+    public Object getCacheValue(@PathVariable String cacheName, @PathVariable String key) {
+        Cache cache = cacheManager.getCache(cacheName);
+        if (cache == null) return "Cache not found";
+        Cache.ValueWrapper value = cache.get(key);
+        return value != null ? value.get() : "Key not found";
+    }
+}
+
+
+
+
+```
+
+---
+
+### Inspecting Redis Cache
+
+- Use the Redis CLI to view and manage cache entries:
+  - `KEYS *` — List all cache keys.
+  - `GET products::1` — Get cached value for key `1` in the `products` cache.
+- Updates and deletions in your application are reflected in Redis automatically.
+- In debug mode, the cache object will be a `RedisCache` instance.
+
+---
+
+### Summary
+
+- Redis enables distributed caching for Spring Boot applications.
+- Use `@Cacheable`, `@CachePut`, and `@CacheEvict` as usual—Spring Boot handles storing and retrieving data from Redis.
+- Use Redis CLI for cache inspection and debugging.
+
+---
+
+
+---
+
+## Spring Boot Scheduling
+
+Spring Boot Scheduling allows you to automate the execution of tasks at specific intervals or times, making it easy to handle recurring jobs like order processing, email notifications, data cleanup, stock updates, and health checks.
+
+---
+
+### Why Use Scheduling?
+
+- Automate repetitive tasks (e.g., process orders every 5 minutes)
+- Send daily email notifications
+- Perform regular data cleanup
+- Fetch external updates (e.g., stock prices)
+- Run system health checks
+
+---
+
+### Enabling Scheduling
+
+- Add `@EnableScheduling` to your main application or configuration class:
+
+```java
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableScheduling;
+
+@Configuration
+@EnableScheduling
+public class SchedulerConfig {
+    // Scheduling beans go here
+}
+```
+
+---
+
+### Scheduling Methods
+
+#### 1. Fixed Rate
+
+- Runs the task at a regular interval, regardless of previous execution completion.
+
+```java
+@Scheduled(fixedRate = 5000) // Runs every 5 seconds
+public void processOrders() {
+    // Task logic here
+}
+```
+
+#### 2. Fixed Delay
+
+- Waits for the previous execution to finish, then waits the specified delay before running again.
+
+```java
+@Scheduled(fixedDelay = 5000) // Runs 5 seconds after previous execution completes
+public void cleanupData() {
+    // Task logic here
+}
+```
+
+#### 3. Initial Delay
+
+- Delays the first execution after application startup.
+
+```java
+@Scheduled(initialDelay = 10000, fixedRate = 5000) // First run after 10s, then every 5s
+public void sendNotifications() {
+    // Task logic here
+}
+```
+
+#### 4. Cron Expressions
+
+- Use cron expressions for complex schedules (e.g., every day at 2:30 AM).
+
+```java
+@Scheduled(cron = "0 30 2 * * ?") // At 2:30 AM every day
+public void dailyReport() {
+    // Task logic here
+}
+```
+
+- **Cron format:** `second minute hour day-of-month month day-of-week`
+- Use online cron generators for help.
+
+---
+
+### Example: Order Processing Service
+
+```java
+@Service
+public class OrderProcessingService {
+
+    @Scheduled(fixedRate = 300000) // Every 5 minutes
+    public void processPendingOrders() {
+        // Process orders logic
+    }
+}
+```
+
+---
+
+### Summary
+
+- Use `@EnableScheduling` to activate scheduling.
+- Use `@Scheduled` with `fixedRate`, `fixedDelay`, `initialDelay`, or `cron` for different scheduling needs.
+- Ideal for automating recurring tasks in Spring Boot applications.
+
+---
+
+
+---
+
+## Dynamic Scheduling in Spring Boot
+
+Dynamic scheduling allows you to change cron expressions and task frequencies at runtime—**without restarting the application**. This is essential for real-world scenarios where task intervals need to be adjusted on the fly (e.g., increasing order processing frequency during a sale).
+
+---
+
+### Why Dynamic Scheduling?
+
+- **Traditional @Scheduled**: Cron expressions are hardcoded; changing them requires redeployment.
+- **Dynamic Scheduling**: Cron expressions are stored in a database and can be updated via an API, allowing runtime changes.
+
+---
+
+### Key Components
+
+- **ThreadPoolTaskScheduler**: Spring class for programmatically scheduling tasks and supporting multi-threaded execution.
+- **ScheduledFuture**: Represents a scheduled task; can be cancelled and rescheduled.
+- **ScheduledConfig Entity/DTO**: Stores task names and cron expressions in the database.
+- **SchedulerController**: REST API to update cron expressions.
+- **DynamicSchedulerService**: Handles scheduling logic, updates, and persistence.
+
+---
+
+### Implementation Outline
+
+**1. Define Entity and DTO for Task Configuration**
+```java
+@Entity
+public class ScheduledConfig {
+    @Id
+    private String taskName;
+    private String cronExpression;
+    // getters/setters
+}
+
+public class ScheduledConfigDTO {
+    private String taskName;
+    private String cronExpression;
+    // getters/setters
+}
+```
+
+**2. Repository for Configurations**
+```java
+public interface ScheduledConfigRepository extends JpaRepository<ScheduledConfig, String> {}
+```
+
+**3. Dynamic Scheduler Service**
+```java
+@Service
+public class DynamicSchedulerService {
+    @Autowired private ThreadPoolTaskScheduler taskScheduler;
+    @Autowired private ScheduledConfigRepository configRepo;
+
+    private Map<String, ScheduledFuture<?>> scheduledTasks = new ConcurrentHashMap<>();
+
+    public void scheduleTask(String taskName, Runnable task, String cronExpression) {
+        // Cancel existing task if present
+        if (scheduledTasks.containsKey(taskName)) {
+            scheduledTasks.get(taskName).cancel(false);
+        }
+        // Schedule new task
+        ScheduledFuture<?> future = taskScheduler.schedule(task, new CronTrigger(cronExpression));
+        scheduledTasks.put(taskName, future);
+    }
+
+    public void updateCron(String taskName, String newCron, Runnable task) {
+        // Update DB
+        ScheduledConfig config = configRepo.findById(taskName).orElse(new ScheduledConfig());
+        config.setTaskName(taskName);
+        config.setCronExpression(newCron);
+        configRepo.save(config);
+        // Reschedule task
+        scheduleTask(taskName, task, newCron);
+    }
+}
+```
+
+**4. Scheduler Controller**
+```java
+@RestController
+@RequestMapping("/api/scheduler")
+public class SchedulerController {
+    @Autowired private DynamicSchedulerService schedulerService;
+
+    @PostMapping("/update")
+    public String updateCron(@RequestBody ScheduledConfigDTO dto) {
+        schedulerService.updateCron(dto.getTaskName(), dto.getCronExpression(), /* pass your Runnable task */);
+        return "Cron updated and task rescheduled!";
+    }
+}
+```
+
+**5. ThreadPoolTaskScheduler Bean**
+```java
+@Bean
+public ThreadPoolTaskScheduler taskScheduler() {
+    ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+    scheduler.setPoolSize(5);
+    scheduler.setThreadNamePrefix("DynamicScheduler-");
+    scheduler.initialize();
+    return scheduler;
+}
+```
+
+---
+
+### How It Works
+
+- When a cron expression is updated via the API, the service cancels the existing `ScheduledFuture` and schedules a new task with the updated cron.
+- Only one instance of the task runs at a time, always using the latest cron expression.
+- Changes take effect immediately—**no redeployment needed**.
+
+---
+
+### Example Use Case
+
+- During an e-commerce sale, increase order processing frequency from every 5 minutes to every 1 minute by updating the cron via API.
+- Console logs show the dynamic change in execution intervals.
+
+---
+
+**Summary:**  
+Dynamic scheduling with `ThreadPoolTaskScheduler` and `ScheduledFuture` enables runtime updates to scheduled tasks, making your Spring Boot application flexible and responsive to changing business needs.
+
+---
+
+---
+
+## Servlet Filters in Spring Boot
+
+**Servlet Filters** act as "gatekeepers" for your application, processing HTTP requests and responses **before** they reach the Spring DispatcherServlet. They are part of the Servlet API and are commonly used for logging, request/response modification, and especially authentication and authorization.
+
+---
+
+### Request Flow Diagram
+### Spring MVC Request Flow with Spring Core Highlighted
+
+```
+Client (Browser/Postman)
+      │
+      ▼
++-------------------+
+|   Tomcat Server   |  ← Embedded server (or any Servlet container)
++-------------------+
+      │
+      ▼
++-------------------+
+|   Servlet Filter  |  ← (jakarta.servlet.Filter) - legacy, runs before Spring
++-------------------+
+      │
+      ▼
++-------------------------------------------------------------+
+|                    SPRING CORE / SPRING MVC                 |
+|                                                             |
+|   +--------------------------+                              |
+|   |   DispatcherServlet      |  ← Spring MVC front controller|
+|   +--------------------------+                              |
+|           │                                             |
+|           ▼                                             |
+|   +--------------------------+                          |
+|   |   Spring Interceptor     |  ← (HandlerInterceptor)  |
+|   +--------------------------+                          |
+|           │                                             |
+|           ▼                                             |
+|   +--------------------------+                          |
+|   |   Controller             |  ← Handles business logic|
+|   +--------------------------+                          |
+|                                                             |
++-------------------------------------------------------------+
+```
+
+---
+
+### Key Points
+
+- **Filters** are part of the Servlet API (run before Spring).
+- **Filter Chain:** Multiple filters can be chained; each can modify the request/response or block further processing.
+- **Interceptors** are part of Spring (run after DispatcherServlet, before Controller).
+- **Spring Security** uses filters (like `BasicAuthenticationFilter`) to handle authentication and authorization.
+
+---
+
+### Filters vs. Interceptors
+
+| Aspect         | Filter (Servlet API)         | Interceptor (Spring)           |
+|----------------|-----------------------------|-------------------------------|
+| Layer          | Before Spring (Servlet)      | Inside Spring (MVC)            |
+| Interface      | `jakarta.servlet.Filter`     | `HandlerInterceptor`           |
+| Use Cases      | Logging, auth, CORS, etc.    | Logging, auth, request mods    |
+| Order          | Before DispatcherServlet     | After DispatcherServlet        |
+| Used by        | Servlet containers, Security | Spring MVC, custom logic       |
+
+---
+
+**Summary:**  
+- Filters process requests before they enter the Spring core.
+- Interceptors process requests inside Spring, before controllers.
+- Understanding filters is crucial for working with Spring Security, which is filter-based.
+
+---
+
+---
+
+## Spring Security Architecture
+
+Spring Security is a comprehensive framework for securing Java applications, APIs, and microservices by handling authentication and authorization.
+
+---
+
+### Key Concepts
+
+- **Authentication:** Verifies *who you are* (e.g., login with username/password).
+- **Authorization:** Determines *what you can do* after authentication (e.g., access control to resources).
+
+---
+
+### Core Components & Request Flow
+
+![Spring security architecture](<Screenshot 2026-01-18 at 4.37.43 PM.png>)
+
+```
+Client (Browser/Postman)
+      │
+      ▼
++-------------------+
+|   Servlet Filter  |  ← Standard Servlet filters
++-------------------+
+      │
+      ▼
++-----------------------------+
+| DelegatingFilterProxy       |  ← Bridges Servlet filter chain to Spring Security
++-----------------------------+
+      │
+      ▼
++-----------------------------+
+| SecurityFilterChain         |  ← Chain of security filters
+|  ├─ SecurityContextHolderFilter
+|  ├─ UsernamePasswordAuthenticationFilter (or JWT/OAuth2, etc.)
+|  ├─ ExceptionTranslationFilter
+|  └─ ... (many more filters)
++-----------------------------+
+      │
+      ▼
++-----------------------------+
+| AuthenticationManager       |  ← Delegates to AuthenticationProviders
++-----------------------------+
+      │
+      ▼
++-----------------------------------------------+
+| List of AuthenticationProviders               |
+|  ├─ DaoAuthenticationProvider (username/pw)   |
+|  ├─ JwtAuthenticationProvider (JWT tokens)    |
+|  ├─ OAuth2AuthenticationProvider (OAuth2)     |
+|  └─ ...                                       |
++-----------------------------------------------+
+      │
+      ▼
++-----------------------------+
+| UserDetailsService          |  ← Loads user info from DB, memory, etc.
++-----------------------------+
+      │
+      ▼
++-----------------------------+
+| PasswordEncoder             |  ← Encodes and verifies passwords
++-----------------------------+
+      │
+      ▼
++-----------------------------+
+| SecurityContext             |  ← Stores authenticated user (principal)
++-----------------------------+
+      │
+      ▼
++-----------------------------+
+| DispatcherServlet           |  ← Spring MVC core
++-----------------------------+
+      │
+      ▼
++-----------------------------+
+| Controller                  |
++-----------------------------+
+```
+
+---
+
+### How Multiple AuthenticationProviders Work
+
+- **AuthenticationManager** (usually a `ProviderManager`) holds a list of `AuthenticationProvider`s.
+- When a request comes in, it passes the authentication request to each provider in order.
+- Each provider checks if it supports the request (`supports()` method).
+- The **first provider** that supports and successfully authenticates the request is used.
+- If none succeed, authentication fails.
+
+---
+
+### Main Components Explained
+
+- **DelegatingFilterProxy:** Integrates Spring-managed filters into the Servlet filter chain.
+- **SecurityFilterChain:** Contains all Spring Security filters (authentication, authorization, CSRF, etc.).
+- **AuthenticationManager:** Delegates authentication to one or more `AuthenticationProvider`s.
+- **AuthenticationProvider:** Handles specific authentication logic (e.g., username/password, JWT, OAuth2).
+- **UserDetailsService:** Loads user-specific data for authentication.
+- **PasswordEncoder:** Encodes and verifies passwords securely.
+- **SecurityContext & SecurityContextHolder:** Stores the authenticated user's details for the current request/session.
+- **SecurityContextHolderFilter:** Maintains the `SecurityContext` for each request/session.
+- **ExceptionTranslationFilter:** Handles security exceptions and returns appropriate HTTP responses (401, 403).
+
+---
+
+### Authentication Flow with Multiple Providers
+
+1. **Request enters SecurityFilterChain** (e.g., via `UsernamePasswordAuthenticationFilter`, `JwtAuthenticationFilter`, etc.).
+2. **AuthenticationManager** receives the authentication request.
+3. **ProviderManager** iterates through its list of `AuthenticationProvider`s:
+    - Calls `supports()` on each provider.
+    - The first provider that returns `true` tries to authenticate.
+    - If authentication succeeds, the user is authenticated and the process stops.
+    - If not, the next provider is tried.
+    - If none succeed, authentication fails.
+4. **UserDetailsService** loads user info; **PasswordEncoder** checks password.
+5. On success, **Authentication** object is stored in **SecurityContext**.
+6. **SecurityContextHolderFilter** maintains the context for the session.
+7. If authentication/authorization fails, **ExceptionTranslationFilter** handles the error response.
+
+---
+
+**Summary:**  
+Spring Security uses a filter chain to intercept requests, authenticate users (using multiple providers if needed), and enforce authorization, with all security state managed in the `SecurityContext`. Understanding these components and the provider delegation model is essential for effective and secure application development.
+
+---
+
+---
+
+## Spring Security: Basic Authentication
+
+Basic Authentication is a simple authentication scheme built into the HTTP protocol. It is commonly used for backend APIs and services without a UI.
+
+---
+
+### Basic Authentication Flow
+
+1. **Unauthenticated Request:**  
+   - Client sends a request without credentials.
+   - Server responds with `401 Unauthorized` and a `WWW-Authenticate` header.
+2. **Client Sends Credentials:**  
+   - Client resends the request with an `Authorization: Basic <base64-encoded-username:password>` header.
+3. **BasicAuthenticationFilter:**  
+   - Intercepts the request, extracts credentials, and creates a `UsernamePasswordAuthenticationToken`.
+   - Passes the token to the `AuthenticationManager`.
+4. **AuthenticationManager:**  
+   - Delegates to an `AuthenticationProvider` (e.g., `DaoAuthenticationProvider`).
+   - Uses a `UserDetailsService` to load user details and a `PasswordEncoder` to verify the password.
+5. **On Success:**  
+   - Stores the authenticated user in the `SecurityContext`.
+   - Grants access to the requested resource.
+
+---
+
+### Enabling Basic Authentication in Spring Boot 3+
+
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable()) // Disable CSRF for APIs
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/h2-console/**").permitAll() // Allow H2 console
+            .anyRequest().authenticated()
+        )
+        .httpBasic(Customizer.withDefaults()); // Enable HTTP Basic Auth
+
+    return http.build();
+}
+```
+
+---
+
+### Storing User Credentials
+
+- **In-Memory:**  
+  Define users in `application.properties` (for demo/testing).
+- **Database (Recommended):**  
+  - Create a `Users` entity and a `UserRepository` (JPA).
+  - Implement a custom `UserDetailsService` to load users from the database.
+
+**Custom UserDetailsService Example:**
+```java
+@Service
+public class CustomUserDetailsService implements UserDetailsService {
+    @Autowired
+    private UserRepository userRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        Users user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        return new org.springframework.security.core.userdetails.User(
+            user.getUsername(),
+            user.getPassword(),
+            List.of(new SimpleGrantedAuthority(user.getRole()))
+        );
+    }
+}
+```
+
+---
+
+### Custom AuthenticationManager and Provider
+
+```java
+@Bean
+public AuthenticationManager authenticationManager(
+        UserDetailsService userDetailsService,
+        PasswordEncoder passwordEncoder) {
+    DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+    provider.setUserDetailsService(userDetailsService);
+    provider.setPasswordEncoder(passwordEncoder);
+    return new ProviderManager(provider);
+}
+
+@Bean
+public PasswordEncoder passwordEncoder() {
+    return new BCryptPasswordEncoder();
+}
+```
+
+---
+
+### Disabling Authentication for Specific URLs
+
+```java
+.authorizeHttpRequests(auth -> auth
+    .requestMatchers("/h2-console/**").permitAll()
+    .anyRequest().authenticated()
+)
+```
+
+---
+
+### Disabling CSRF (for APIs)
+
+```java
+.csrf(csrf -> csrf.disable())
+```
+
+---
+
+### Testing
+
+- Use tools like **Postman** to send requests with Basic Auth headers.
+- On success, you receive the protected resource; on failure, a `401 Unauthorized` response.
+
+---
+
+**Summary:**  
+- Basic Authentication is easy to set up for backend APIs.
+- Use a custom `UserDetailsService` and `DaoAuthenticationProvider` for database-backed authentication.
+- Configure permitted URLs and disable CSRF as needed for backend-only services.
+
+---
+
+
+---
+
+## JWT (JSON Web Token) Authentication in Spring Security
+
+JWT is a widely used, stateless authentication mechanism that solves many limitations of traditional (stateful) authentication methods, especially in modern, scalable applications and microservices.
+
+---
+
+### Why JWT?
+
+- **Problems with Basic Authentication:**
+  - Requires sending username/password with every request.
+  - Server must validate credentials and maintain session state.
+  - Not scalable for distributed/microservice architectures.
+  - Difficult to manage roles/permissions across services.
+
+- **JWT Solution:**
+  - Stateless: No server-side session storage required.
+  - Scalable: Works seamlessly across multiple services and instances.
+  - Secure: Encodes user identity, roles, and expiry in a signed token.
+
+---
+
+### What is a JWT? (Structure & Format)
+
+A JWT is a compact, URL-safe token consisting of **three parts** (separated by dots):
+
+```
+xxxxx.yyyyy.zzzzz
+|     |     |
+|     |     └─ Signature (Blue): Verifies token integrity (not tampered)
+|     └─ Payload (Purple): Claims/data (user info, roles, expiry, etc.)
+└─ Header (Red): Metadata (algorithm, token type)
+```
+
+- **Header:**  
+  - Contains metadata, e.g., algorithm (`alg: HS256`), token type (`typ: JWT`).
+- **Payload:**  
+  - Contains claims (user ID, roles, issued at, expiry, etc.).
+- **Signature:**  
+  - Ensures the token is valid and untampered (signed with secret/private key).
+
+---
+
+### JWT Authentication Flow
+
+1. **Login:**  
+   - Client sends username/password to the server (once).
+2. **Token Issuance:**  
+   - Server authenticates user and returns a JWT.
+3. **Subsequent Requests:**  
+   - Client sends the JWT in the `Authorization: Bearer <token>` header.
+4. **Token Verification:**  
+   - Server extracts, decodes, and verifies the JWT signature and expiry.
+   - If valid, processes the request; if invalid/expired, returns `401 Unauthorized`.
+
+---
+
+### JWT in Spring Security
+
+- JWT replaces traditional session-based authentication.
+- All authentication state is stored in the token itself (stateless).
+- Integration with Spring Security involves:
+  - Creating and signing JWTs after successful login.
+  - Extracting and validating JWTs on each request.
+  - Decoding claims to set user identity and roles in the security context.
+  - Using external libraries (e.g., `jjwt`, `java-jwt`) for token handling.
+
+---
+
+### Analogy
+
+- **Basic Auth:** Like showing your ID at the office entrance every time.
+- **JWT:** Like getting an access card once, then using it for all future entries—no repeated checks.
+
+---
+
+**Summary:**  
+JWT provides a secure, stateless, and scalable way to handle authentication and authorization in Spring Security. It is ideal for modern web apps and microservices, and is easy to integrate using existing libraries and Spring Security’s filter chain.
+
+---
+
+---
+
+## JWT Authentication: Implementing the /authenticate Endpoint in Spring Boot
+
+This section explains how to implement the `/authenticate` API to validate user credentials and generate a secure JWT token in a Spring Boot application.
+
+---
+
+### JWT Flow Recap
+
+- **Step 1:** Client sends username and password to `/authenticate`.
+- **Step 2:** Server validates credentials and returns a JWT token.
+- **Step 3:** Client uses the JWT token for subsequent requests (sent in `Authorization: Bearer <token>` header).
+- **Benefit:** Credentials are sent only once; all further requests use the token.
+
+---
+
+### Spring Security Architecture Recap
+
+- **Filters:** Intercept requests for authentication/authorization.
+- **AuthenticationManager:** Delegates authentication to providers.
+- **AuthenticationProvider:** Validates credentials.
+- **UserDetailsService:** Loads user details from DB.
+- **PasswordEncoder:** Verifies password securely.
+
+---
+
+### /authenticate API Flow
+
+![Authnticate flow](JWT_token_genaration_Flow.png)
+
+- The `/authenticate` endpoint is **excluded from security filters** (permitted for all).
+- Request goes directly to the authentication controller.
+- Controller uses `AuthenticationManager` to validate username and password.
+- On success, generates and returns a JWT token.
+
+---
+
+### Implementation Steps
+
+1. **Security Configuration:**
+   - Permit all access to `/authenticate` endpoint.
+   - Example:
+     ```java
+     http
+       .authorizeHttpRequests(auth -> auth
+         .requestMatchers("/authenticate").permitAll()
+         .anyRequest().authenticated()
+       );
+     ```
+
+2. **Auth Controller:**
+   - Create a REST controller with `/authenticate` endpoint.
+   - Accepts username and password in the request body.
+   - Uses `AuthenticationManager` to authenticate.
+   - On success, generates JWT token and returns it.
+
+   ```java
+   @RestController
+   public class AuthController {
+       @Autowired
+       private AuthenticationManager authenticationManager;
+       @Autowired
+       private JWTUtil jwtUtil;
+
+       @PostMapping("/authenticate")
+       public ResponseEntity<?> authenticate(@RequestBody AuthRequest request) {
+           Authentication auth = authenticationManager.authenticate(
+               new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+           );
+           String token = jwtUtil.generateToken(request.getUsername());
+           return ResponseEntity.ok(new AuthResponse(token));
+       }
+   }
+   ```
+
+3. **JWTUtil Class:**
+   - Uses JJWT library to generate JWT tokens.
+   - Sets subject (username), issued at, expiration (e.g., 1 hour), and signs with a secret key.
+
+   ```java
+   @Component
+   public class JWTUtil {
+       private final String SECRET_KEY = "your_secret_key";
+
+       public String generateToken(String username) {
+           return Jwts.builder()
+               .setSubject(username)
+               .setIssuedAt(new Date())
+               .setExpiration(new Date(System.currentTimeMillis() + 3600000)) // 1 hour
+               .signWith(SignatureAlgorithm.HS256, SECRET_KEY)
+               .compact();
+       }
+   }
+   ```
+
+4. **Testing:**
+   - Use Postman to send POST requests to `/authenticate` with valid/invalid credentials.
+   - On success: receive JWT token.
+   - On failure: receive `401 Unauthorized`.
+
+---
+
+### Summary
+
+- `/authenticate` endpoint allows clients to obtain JWT tokens by validating credentials.
+- Security config permits access to this endpoint.
+- Controller uses `AuthenticationManager` for validation.
+- JWTUtil generates and returns the token.
+- All subsequent requests use the JWT token for authentication.
+
+---
+
+
+---
+
+## JWT Authentication: Validating JWT Token in Spring Boot (Part 2)
+
+This section explains how to validate a JWT token for every incoming request in a Spring Boot application using a custom filter.
+
+---
+
+### JWT Validation Flow
+
+![Authenticate_with_token](Authenticate_with_token.png)
+
+1. **Client sends JWT token** in the `Authorization: Bearer <token>` header for each request after login.
+2. **Custom JWT Filter** (`JwtAuthFilter`, extends `OncePerRequestFilter`) intercepts every request.
+3. **Token Extraction:**  
+   - Extracts the JWT from the `Authorization` header.
+   - Checks if the header exists and starts with `"Bearer "`.
+4. **Token Validation:**  
+   - Uses `JWTUtil.extractUsername(token)` to get the username from the token.
+   - Loads `UserDetails` from the database using `CustomUserDetailsService`.
+   - Calls `JWTUtil.validateToken(token, userDetails)` to check:
+     - Username matches
+     - Token is not expired
+     - Signature is valid
+5. **Set Security Context:**  
+   - If valid, creates a `UsernamePasswordAuthenticationToken` with user details and authorities.
+   - Sets this authentication object in `SecurityContextHolder`.
+   - Spring Security now treats the request as authenticated.
+6. **Filter Chain:**  
+   - The JWT filter is added **before** the default `UsernamePasswordAuthenticationFilter` using `http.addFilterBefore()`.
+   - If the token is invalid or expired, the request is rejected with a `403 Forbidden` error.
+
+---
+
+### Implementation Steps
+
+**1. Create JwtAuthFilter**
+
+```java
+@Component
+public class JwtAuthFilter extends OncePerRequestFilter {
+
+    @Autowired
+    private JWTUtil jwtUtil;
+    @Autowired
+    private CustomUserDetailsService userDetailsService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
+        String authHeader = request.getHeader("Authorization");
+        String token = null;
+        String username = null;
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+            username = jwtUtil.extractUsername(token);
+        }
+
+        if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            if (jwtUtil.validateToken(token, userDetails)) {
+                UsernamePasswordAuthenticationToken authToken =
+                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authToken);
+            }
+        }
+        filterChain.doFilter(request, response);
+    }
+}
+```
+
+**2. Update JWTUtil**
+
+- Add `extractUsername(token)` and `validateToken(token, userDetails)` methods using the signing key.
+
+**3. Register JwtAuthFilter in Security Configuration**
+
+```java
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthFilter jwtAuthFilter) throws Exception {
+    http
+        .csrf(csrf -> csrf.disable())
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers("/authenticate").permitAll()
+            .anyRequest().authenticated()
+        )
+        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+    return http.build();
+}
+```
+
+---
+
+### Testing
+
+- **Valid token:** Request is authenticated and processed.
+- **Invalid/expired token:** Returns `403 Forbidden`.
+- **No token:** Returns `401 Unauthorized` (if endpoint is protected).
+
+---
+
+**Summary:**  
+- The custom JWT filter validates tokens for every request, sets the authentication in the security context, and enables stateless, secure API access after initial login.
+- This approach bypasses the default authentication manager for subsequent requests, relying solely on the JWT’s validity.
+
+---
+
+---
+
+
+
+---
+
+---
+
+
 ## Spring Boot Layered Architecture
 
 ### What is Layered Architecture?
