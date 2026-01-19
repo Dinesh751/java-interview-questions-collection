@@ -14085,7 +14085,1306 @@ These advanced features make Spring EventListeners more flexible, scalable, and 
 
 ---
 
+---
 
+## Spring Cloud Config: Centralized Configuration Management
+
+Spring Cloud Config is a framework for managing configurations centrally in distributed systems and microservices. It externalizes configurations, making them easy to manage and update without redeploying services.
+
+---
+
+### Real-World Problems Addressed by Spring Cloud Config
+
+1. **Redeployment on Configuration Changes:**  
+   Without centralized configuration, updating a property requires redeploying the service.
+
+2. **Duplicate Configurations Across Services:**  
+   Inconsistent or duplicate configurations across multiple services lead to maintenance challenges.
+
+3. **Dynamic Updates:**  
+   Services need to reflect configuration changes without restarting.
+
+---
+
+### Architecture of Spring Cloud Config
+
+1. **Config Server:**  
+   - Acts as an external service that connects to a central configuration source (e.g., GitHub, GitLab, or local files).  
+   - Fetches and stores configurations for all microservices.
+
+2. **Config Client:**  
+   - Microservices that retrieve their configurations from the Config Server during startup.  
+   - Uses the configurations to initialize properties.
+
+**Flow Diagram:**
+```
++-------------------+       +-------------------+
+|   Config Server   | <---> |  Configuration    |
+|                   |       |  Source (e.g., GitHub) |
++-------------------+       +-------------------+
+         ↑
+         |
+         v
++-------------------+
+|   Config Client   |
+|  (Microservices)  |
++-------------------+
+```
+
+---
+
+### Implementation Steps
+
+#### 1. **Config Server Setup**
+- Add the following dependencies:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-config-server</artifactId>
+  </dependency>
+  ```
+- Annotate the main class with `@EnableConfigServer`:
+  ```java
+  @SpringBootApplication
+  @EnableConfigServer
+  public class ConfigServerApplication {
+      public static void main(String[] args) {
+          SpringApplication.run(ConfigServerApplication.class, args);
+      }
+  }
+  ```
+- Configure the `application.yml` file:
+  ```yaml
+  server:
+    port: 8888
+
+  spring:
+    cloud:
+      config:
+        server:
+          git:
+            uri: https://github.com/your-repo/config-repo
+  ```
+
+#### 2. **Config Client Setup**
+- Add the following dependencies:
+  ```xml
+  <dependency>
+      <groupId>org.springframework.cloud</groupId>
+      <artifactId>spring-cloud-starter-config</artifactId>
+  </dependency>
+  ```
+- Configure the `bootstrap.yml` file:
+  ```yaml
+  spring:
+    application:
+      name: your-service-name
+    cloud:
+      config:
+        uri: http://localhost:8888
+  ```
+
+---
+
+### Dynamic Configuration Updates
+
+1. **Enable Dynamic Updates:**
+   - Add the `spring-boot-starter-actuator` dependency.
+   - Expose the `/actuator/refresh` endpoint in `application.yml`:
+     ```yaml
+     management:
+       endpoints:
+         web:
+           exposure:
+             include: refresh
+     ```
+
+2. **Use `@RefreshScope`:**
+   - Annotate beans or classes to enable dynamic property updates:
+     ```java
+     @RestController
+     @RefreshScope
+     public class ConfigController {
+         @Value("${property.name}")
+         private String property;
+
+         @GetMapping("/property")
+         public String getProperty() {
+             return property;
+         }
+     }
+     ```
+
+3. **Trigger Refresh:**
+   - Use `POST /actuator/refresh` to reload configurations dynamically.
+
+---
+
+### Key Benefits
+
+- **Centralized Management:** All configurations are stored in one place.
+- **Dynamic Updates:** Reflect changes without restarting services.
+- **Scalability:** Ideal for microservice architectures.
+
+---
+
+### Summary
+
+Spring Cloud Config simplifies configuration management by externalizing properties, enabling dynamic updates, and centralizing configurations for all microservices. It is a critical tool for modern distributed systems.
+
+---
+
+---
+
+## Spring Retry: Automatic Retry Mechanism in Spring Boot
+
+Spring Retry provides a mechanism to automatically retry failed operations, making it especially useful for handling transient failures like external API calls, rate limiting, or temporary internal issues.
+
+---
+
+### What is Spring Retry?
+
+- **Purpose:** Automatically retry failed operations to improve resilience.
+- **Use Cases:**
+  - Retrying failed external API calls.
+  - Handling rate-limited requests.
+  - Recovering from transient database or network failures.
+
+---
+
+### Enabling Spring Retry
+
+1. **Add Dependencies:**
+   Add the following dependencies to your `pom.xml`:
+   ```xml
+   <dependency>
+       <groupId>org.springframework.retry</groupId>
+       <artifactId>spring-retry</artifactId>
+   </dependency>
+   <dependency>
+       <groupId>org.springframework</groupId>
+       <artifactId>spring-aspects</artifactId>
+   </dependency>
+   ```
+
+2. **Enable Retry:**
+   Annotate a configuration class with `@EnableRetry`:
+   ```java
+   @Configuration
+   @EnableRetry
+   public class RetryConfig {
+   }
+   ```
+
+---
+
+### @Retryable Annotation
+
+- **Purpose:** Marks methods for retry logic.
+- **Default Behavior:** Retries the method **3 times** by default.
+
+**Example:**
+```java
+@Service
+public class ApiService {
+
+    @Retryable(maxAttempts = 5, value = {RemoteServiceException.class})
+    public String callExternalApi() {
+        System.out.println("Attempting API call...");
+        throw new RemoteServiceException("API call failed");
+    }
+}
+```
+
+**Key Attributes:**
+- `maxAttempts`: Number of retry attempts (default: 3).
+- `value`: Exceptions to retry for (default: `Exception.class`).
+
+---
+
+### Backoff and Multiplier
+
+- **@Backoff:** Introduces a delay between retry attempts.
+- **Attributes:**
+  - `delay`: Initial delay in milliseconds (default: 1000 ms).
+  - `multiplier`: Multiplies the delay for each subsequent attempt.
+
+**Example:**
+```java
+@Retryable(
+    maxAttempts = 4,
+    value = {RemoteServiceException.class},
+    backoff = @Backoff(delay = 2000, multiplier = 2)
+)
+public String callExternalApi() {
+    System.out.println("Attempting API call...");
+    throw new RemoteServiceException("API call failed");
+}
+```
+
+**Output:**
+- Attempt 1: Delay = 2 seconds.
+- Attempt 2: Delay = 4 seconds.
+- Attempt 3: Delay = 8 seconds.
+
+---
+
+### @Recover Annotation
+
+- **Purpose:** Handles the final failure after all retry attempts are exhausted.
+- **How It Works:** Define a method annotated with `@Recover` to handle the exception.
+
+**Example:**
+```java
+@Recover
+public String recover(RemoteServiceException e) {
+    System.out.println("Recovering from failure: " + e.getMessage());
+    return "Fallback response";
+}
+```
+
+**Flow:**
+1. Retry logic is applied.
+2. If all retries fail, the `@Recover` method is invoked.
+
+---
+
+### How Spring Retry Works Internally
+
+- **Spring AOP Proxy:**
+  - Spring Retry uses **Aspect-Oriented Programming (AOP)** to manage retries.
+  - When `@EnableRetry` is used, Spring creates a **proxy** for the service.
+  - The proxy intercepts method calls and applies retry logic (attempts, backoff, recovery) before executing the actual method.
+
+**Debugging Insight:**
+- During debugging, you can observe the proxy wrapping the service class.
+
+---
+
+### Summary
+
+- **@Retryable:** Marks methods for retry logic.
+- **@Backoff:** Adds delays between retries, with optional exponential backoff.
+- **@Recover:** Handles final failure after all retries are exhausted.
+- **Spring AOP Proxy:** Manages retry logic transparently.
+
+Spring Retry simplifies implementing retry mechanisms, making applications more resilient to transient failures.
+
+---
+
+---
+
+## Spring Retry: Internal Working and AOP Proxy
+
+Spring Retry provides a mechanism to automatically retry failed operations. This section explains the internal workings of Spring Retry, focusing on its AOP-based architecture, retry flow, and how it handles retries, backoff, and recovery.
+
+---
+
+### Recap: Key Annotations and Features
+
+1. **@EnableRetry:** Enables Spring Retry in the application.
+2. **@Retryable:** Marks methods for retry logic.
+   - **Attributes:**
+     - `maxAttempts`: Maximum retry attempts.
+     - `backoff`: Configures delay between retries.
+3. **@Recover:** Handles the final failure after all retries are exhausted.
+
+---
+
+### Internal Working Flow of Spring Retry
+
+1. **CGLIB Proxy:**
+   - When a method annotated with `@Retryable` is called, the request is intercepted by a **CGLIB proxy**.
+   - The proxy is created by Spring AOP when `@EnableRetry` is used.
+
+2. **RetryOperationInterceptor:**
+   - The proxy delegates the request to the **RetryOperationInterceptor**, which is an AOP interceptor.
+   - The interceptor checks if the method is annotated with `@Retryable`.
+
+3. **RetryTemplate:**
+   - If the method is retryable, the interceptor delegates the request to the **RetryTemplate**.
+   - The `RetryTemplate` manages the retry loop, applying the configured retry and backoff policies.
+
+4. **Retry Loop:**
+   - The `RetryTemplate` extracts retry configurations (e.g., `maxAttempts`, `backoff`) from the `@Retryable` annotation.
+   - If an exception occurs:
+     - It calculates the sleep time using the backoff policy.
+     - Calls `Thread.sleep()` to wait before retrying.
+     - Retries the method until the maximum attempts are reached.
+
+5. **Recovery or Exception Re-throw:**
+   - If all retry attempts fail:
+     - The `RetryTemplate` checks for a `@Recover` method.
+     - If a `@Recover` method is present, it is invoked to handle the failure.
+     - If no `@Recover` method is found, the exception is re-thrown.
+
+---
+
+### Debugging Insights
+
+- **RetryOperationInterceptor:**
+  - Identifies methods annotated with `@Retryable`.
+  - Delegates retry logic to the `RetryTemplate`.
+
+- **RetryTemplate:**
+  - Handles retries, backoff, and recovery.
+  - Manages the retry loop and calculates delays between attempts.
+
+- **Debugging Flow:**
+  - Step through the `RetryOperationInterceptor` to see how it identifies retry annotations.
+  - Observe how the `RetryTemplate` applies retry policies and handles exceptions.
+
+---
+
+### Single-Thread Behavior
+
+- Spring Retry operates in a **blocking, single-threaded** manner.
+- The calling thread is blocked until all retry operations are completed.
+- For non-blocking retries in microservices, consider using libraries like **Resilience4j**.
+
+---
+
+### Summary
+
+- **CGLIB Proxy:** Intercepts calls to `@Retryable` methods.
+- **RetryOperationInterceptor:** Delegates retry logic to the `RetryTemplate`.
+- **RetryTemplate:** Manages retries, backoff, and recovery.
+- **@Recover:** Handles final failure after retries are exhausted.
+- **Blocking Behavior:** Spring Retry is single-threaded and blocks the calling thread during retries.
+
+Spring Retry simplifies retry logic for transient failures, but for non-blocking retries in distributed systems, consider alternatives like Resilience4j.
+
+---
+
+
+---
+
+## Advanced Dependency Injection Techniques in Spring Boot
+
+This guide explores three advanced techniques for injecting prototype-scoped beans into singleton-scoped beans in Spring Boot: **ObjectProvider**, **Scoped Proxy**, and **@Lookup Method Injection**. These techniques solve the problem of prototype beans losing their "new instance per request" behavior when injected into singleton beans.
+
+---
+
+### The Problem: Prototype Bean in Singleton Bean
+
+1. **Singleton Scope:**
+   - Default scope in Spring.
+   - Only one instance of the bean is created and shared across the application.
+
+2. **Prototype Scope:**
+   - A new instance of the bean is created every time it is requested.
+
+3. **The Issue:**
+   - When a prototype bean is injected directly into a singleton bean using `@Autowired`, the singleton bean receives only **one instance** of the prototype bean during its creation.
+   - Subsequent calls to the prototype bean through the singleton bean return the **same instance**, violating the prototype scope principle.
+
+---
+
+### Solution 1: ObjectProvider
+
+**Concept:**
+- `ObjectProvider` allows for **lazy, dynamic, and safe fetching** of beans at runtime.
+
+**How It Works:**
+- Instead of directly injecting the prototype bean, inject an `ObjectProvider` for the prototype bean.
+- Each call to `provider.getObject()` fetches a new instance of the prototype bean.
+
+**Implementation:**
+```java
+@Service
+public class SingletonService {
+
+    @Autowired
+    private ObjectProvider<PrototypeBean> prototypeBeanProvider;
+
+    public void usePrototypeBean() {
+        PrototypeBean prototypeBean = prototypeBeanProvider.getObject();
+        System.out.println("Prototype Bean Instance: " + prototypeBean);
+    }
+}
+```
+
+**Prototype Bean:**
+```java
+@Component
+@Scope("prototype")
+public class PrototypeBean {
+    public PrototypeBean() {
+        System.out.println("PrototypeBean instance created");
+    }
+}
+```
+
+**Key Points:**
+- `ObjectProvider` internally uses the `BeanFactory` to fetch the bean.
+- For prototype beans, a **new instance** is returned each time `getObject()` is called.
+
+**Output:**
+```
+PrototypeBean instance created
+Prototype Bean Instance: com.example.PrototypeBean@1a2b3c
+PrototypeBean instance created
+Prototype Bean Instance: com.example.PrototypeBean@4d5e6f
+```
+
+---
+
+### Solution 2: Scoped Proxy
+
+**Concept:**
+- A **scoped proxy** is a Spring-generated proxy (CGLIB proxy) that gets injected instead of the actual bean.
+- Useful when injecting a shorter-lived bean (e.g., prototype) into a longer-lived bean (e.g., singleton).
+
+**How It Works:**
+- Annotate the prototype bean with `@Scope("prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)`.
+- Spring injects a **proxy** of the prototype bean into the singleton bean.
+- When a method on the proxy is called, the proxy fetches a **new instance** of the prototype bean.
+
+**Implementation:**
+```java
+@Component
+@Scope(value = "prototype", proxyMode = ScopedProxyMode.TARGET_CLASS)
+public class PrototypeBean {
+    public PrototypeBean() {
+        System.out.println("PrototypeBean instance created");
+    }
+}
+
+@Service
+public class SingletonService {
+
+    @Autowired
+    private PrototypeBean prototypeBean;
+
+    public void usePrototypeBean() {
+        System.out.println("Prototype Bean Instance: " + prototypeBean);
+    }
+}
+```
+
+**Key Points:**
+- The injected `prototypeBean` is actually a **CGLIB proxy**.
+- The proxy intercepts method calls and fetches a new instance of the prototype bean.
+
+**Output:**
+```
+PrototypeBean instance created
+Prototype Bean Instance: com.example.PrototypeBean@1a2b3c
+PrototypeBean instance created
+Prototype Bean Instance: com.example.PrototypeBean@4d5e6f
+```
+
+---
+
+### Solution 3: @Lookup Method Injection
+
+**Concept:**
+- The `@Lookup` annotation is used on a method within a singleton bean.
+- Spring overrides this method at runtime to return a **new instance** of the specified bean every time the method is called.
+
+**How It Works:**
+- Spring creates a **CGLIB proxy** for the singleton bean.
+- The proxy overrides the `@Lookup` annotated method.
+- When the method is invoked, the proxy fetches a **new instance** of the prototype bean.
+
+**Implementation:**
+```java
+@Component
+@Scope("prototype")
+public class PrototypeBean {
+    public PrototypeBean() {
+        System.out.println("PrototypeBean instance created");
+    }
+}
+
+@Service
+public abstract class SingletonService {
+
+    public void usePrototypeBean() {
+        PrototypeBean prototypeBean = getPrototypeBean();
+        System.out.println("Prototype Bean Instance: " + prototypeBean);
+    }
+
+    @Lookup
+    protected abstract PrototypeBean getPrototypeBean();
+}
+```
+
+**Key Points:**
+- The `@Lookup` annotated method is **abstract** or has an empty body.
+- Spring dynamically overrides the method to fetch a new instance of the prototype bean.
+
+**Output:**
+```
+PrototypeBean instance created
+Prototype Bean Instance: com.example.PrototypeBean@1a2b3c
+PrototypeBean instance created
+Prototype Bean Instance: com.example.PrototypeBean@4d5e6f
+```
+
+---
+
+### Comparison of Techniques
+
+| Technique         | Use Case                              | Advantages                              | Disadvantages                          |
+|-------------------|---------------------------------------|-----------------------------------------|----------------------------------------|
+| **ObjectProvider** | Dynamic, lazy fetching of beans       | Simple to implement, no proxies         | Requires explicit calls to `getObject` |
+| **Scoped Proxy**   | Transparent injection of prototype beans | No code changes in singleton bean       | Adds proxy overhead                    |
+| **@Lookup**        | Method-level dynamic bean fetching    | Clean and declarative                   | Requires abstract/empty methods        |
+
+---
+
+### Summary
+
+- **ObjectProvider:** Use for lazy, dynamic fetching of prototype beans.
+- **Scoped Proxy:** Use for transparent injection of prototype beans into singleton beans.
+- **@Lookup:** Use for method-level dynamic bean fetching.
+
+These techniques ensure that prototype beans retain their "new instance per request" behavior when injected into singleton beans, making Spring applications more flexible and maintainable.
+
+---
+
+---
+
+## Managing Application Configuration with @ConfigurationProperties
+
+Spring Boot provides two primary ways to manage application configuration: `@Value` and `@ConfigurationProperties`. While `@Value` is simple and useful for small projects, `@ConfigurationProperties` is a more robust and scalable solution for managing configurations in larger applications.
+
+---
+
+### Problems with @Value
+
+1. **Scattered Configurations:**
+   - Using `@Value` leads to configuration properties being scattered across multiple classes, making it difficult to locate and manage them in large projects.
+
+2. **Lack of Type Safety:**
+   - All values are treated as strings, increasing the risk of runtime errors and making refactoring risky.
+
+3. **Difficulty in Grouping Related Settings:**
+   - Related configurations cannot be grouped logically, leading to poor organization.
+
+4. **Harder Testing:**
+   - Testing configurations becomes cumbersome as there is no centralized way to inject or mock related properties.
+
+5. **Inconsistent Environments:**
+   - Managing configurations across different environments becomes error-prone.
+
+---
+
+### Benefits of @ConfigurationProperties
+
+`@ConfigurationProperties` solves the limitations of `@Value` by mapping configuration properties to strongly typed Java objects (POJOs).
+
+1. **Strongly Typed Configuration:**
+   - Maps configuration properties to a Java class, enabling injection of an entire configuration bean at once.
+
+2. **Improved Type Safety:**
+   - Spring Boot validates the configuration types at startup, failing fast if there are mismatches.
+
+3. **Easier Testing:**
+   - Configuration classes can be instantiated and tested independently in unit tests.
+
+4. **Better Organization:**
+   - Related configurations are grouped into dedicated classes, improving readability and maintainability.
+
+5. **Support for Complex Structures:**
+   - Supports nested configurations, lists, and maps, allowing complex data structures to be mapped directly from `application.yml` or `application.properties`.
+
+6. **Built-in Validation:**
+   - Supports validation using `@Validated` and validation annotations (e.g., `@Min`, `@NotBlank`), ensuring constraints are enforced at startup.
+
+---
+
+### Implementation Steps
+
+#### 1. Define a Configuration Class
+
+Use the `@ConfigurationProperties` annotation to map properties to a Java class.
+
+```java
+@ConfigurationProperties(prefix = "app")
+@Validated
+public class AppConfig {
+
+    @NotBlank
+    private String name;
+
+    @Min(1)
+    private int maxUsers;
+
+    private List<String> supportedLanguages;
+
+    private DatabaseConfig database;
+
+    // Getters and Setters
+
+    public static class DatabaseConfig {
+        private String url;
+        private String username;
+        private String password;
+
+        // Getters and Setters
+    }
+}
+```
+
+---
+
+#### 2. Enable Configuration Properties
+
+Register the configuration class as a Spring bean using `@EnableConfigurationProperties` or `@ConfigurationPropertiesScan`.
+
+```java
+@Configuration
+@EnableConfigurationProperties(AppConfig.class)
+public class AppConfigLoader {
+}
+```
+
+---
+
+#### 3. Define Properties in `application.yml`
+
+```yaml
+app:
+  name: My Application
+  max-users: 100
+  supported-languages:
+    - en
+    - fr
+    - es
+  database:
+    url: jdbc:mysql://localhost:3306/mydb
+    username: root
+    password: secret
+```
+
+---
+
+#### 4. Inject Configuration in Services
+
+Inject the configuration class wherever needed.
+
+```java
+@Service
+public class UserService {
+
+    private final AppConfig appConfig;
+
+    public UserService(AppConfig appConfig) {
+        this.appConfig = appConfig;
+    }
+
+    public void printConfig() {
+        System.out.println("App Name: " + appConfig.getName());
+        System.out.println("Max Users: " + appConfig.getMaxUsers());
+        System.out.println("Supported Languages: " + appConfig.getSupportedLanguages());
+        System.out.println("Database URL: " + appConfig.getDatabase().getUrl());
+    }
+}
+```
+
+---
+
+### Validation with @Validated
+
+Add validation annotations to the configuration class to enforce constraints.
+
+**Example:**
+```java
+@ConfigurationProperties(prefix = "app")
+@Validated
+public class AppConfig {
+
+    @NotBlank
+    private String name;
+
+    @Min(1)
+    private int maxUsers;
+
+    // Other fields...
+}
+```
+
+If the constraints are violated, Spring Boot fails fast at startup with a clear error message.
+
+---
+
+### Best Practices
+
+1. **Stop Using @Value Everywhere:**
+   - Use `@ConfigurationProperties` for better organization and type safety.
+
+2. **Group Related Configurations:**
+   - Create dedicated configuration classes for logically related properties.
+
+3. **Mirror YAML Structure:**
+   - Ensure the structure of your configuration classes matches the structure in `application.yml`.
+
+4. **Fail Fast with Validation:**
+   - Use `@Validated` and validation annotations to catch configuration errors at startup.
+
+5. **Use Lists and Maps:**
+   - Prefer lists and maps for collections instead of numbered keys.
+
+6. **Immutable Configurations:**
+   - Use constructor binding or records to make configuration classes immutable and prevent accidental changes.
+
+---
+
+### Summary: @Value vs. @ConfigurationProperties
+
+| Feature                     | @Value                     | @ConfigurationProperties         |
+|-----------------------------|----------------------------|-----------------------------------|
+| **Type Safety**             | No                         | Yes                               |
+| **Grouping Related Settings** | No                        | Yes                               |
+| **Testing**                 | Hard                       | Easy                              |
+| **Validation**              | No                         | Yes (with `@Validated`)          |
+| **Complex Structures**      | No                         | Yes (nested, lists, maps)         |
+| **Recommended for Large Apps** | No                      | Yes                               |
+
+---
+
+### Code Example Repository
+
+The full code example is available on GitHub: [ConfigPropertiesDemo](https://github.com/codesnippetjava/ConfigPropertiesDemo).
+
+---
+
+
+---
+
+## Project Lombok: Simplifying Java Code in Spring Boot
+
+Project Lombok is a Java library that reduces boilerplate code by automatically generating common methods like getters, setters, constructors, and more at compile time. This allows developers to focus on business logic instead of repetitive code.
+
+---
+
+### Key Features of Lombok
+
+1. **Generates Common Methods:**
+   - Getters, setters, constructors, `equals`, `hashCode`, `toString`, etc.
+   - Reduces boilerplate code in Java classes.
+
+2. **Improves Readability:**
+   - Keeps code concise and clean.
+   - Focus on business logic rather than repetitive method definitions.
+
+3. **Integrates Seamlessly with Spring Boot:**
+   - Simplifies dependency injection, logging, and object creation.
+
+---
+
+### Integrating Lombok in Spring Boot
+
+1. **Add Dependency:**
+   Add the Lombok dependency to your `pom.xml`:
+   ```xml
+   <dependency>
+       <groupId>org.projectlombok</groupId>
+       <artifactId>lombok</artifactId>
+       <version>1.18.28</version>
+       <scope>provided</scope>
+   </dependency>
+   ```
+
+2. **Enable Annotation Processing:**
+   - In IntelliJ IDEA: Go to `Preferences > Build, Execution, Deployment > Compiler > Annotation Processors` and enable annotation processing.
+   - In Eclipse: Go to `Preferences > Java > Compiler > Annotation Processing` and enable annotation processing.
+
+---
+
+### Lombok Annotations
+
+#### 1. **@Getter and @Setter**
+- **Purpose:** Automatically generates getter and setter methods for class fields.
+- **Example:**
+  ```java
+  @Getter
+  @Setter
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+- **Generated Methods:**
+  ```java
+  public Long getId() { return id; }
+  public void setId(Long id) { this.id = id; }
+  public String getName() { return name; }
+  public void setName(String name) { this.name = name; }
+  ```
+
+---
+
+#### 2. **@NoArgsConstructor and @AllArgsConstructor**
+- **Purpose:** Generates constructors.
+  - `@NoArgsConstructor`: No-argument constructor.
+  - `@AllArgsConstructor`: Constructor with all fields as arguments.
+- **Example:**
+  ```java
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+- **Generated Constructors:**
+  ```java
+  public Employee() {}
+  public Employee(Long id, String name) {
+      this.id = id;
+      this.name = name;
+  }
+  ```
+
+---
+
+#### 3. **@EqualsAndHashCode**
+- **Purpose:** Generates `equals()` and `hashCode()` methods.
+- **Example:**
+  ```java
+  @EqualsAndHashCode
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+
+---
+
+#### 4. **@ToString**
+- **Purpose:** Generates a `toString()` method.
+- **Example:**
+  ```java
+  @ToString
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+- **Generated Method:**
+  ```java
+  public String toString() {
+      return "Employee(id=" + id + ", name=" + name + ")";
+  }
+  ```
+
+---
+
+#### 5. **@Data**
+- **Purpose:** A composite annotation that combines:
+  - `@Getter`
+  - `@Setter`
+  - `@RequiredArgsConstructor`
+  - `@EqualsAndHashCode`
+  - `@ToString`
+- **Example:**
+  ```java
+  @Data
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+
+---
+
+#### 6. **@AllArgsConstructor for Dependency Injection**
+- **Purpose:** Simplifies constructor-based dependency injection.
+- **Example:**
+  ```java
+  @Service
+  @AllArgsConstructor
+  public class EmployeeService {
+      private final EmployeeRepository employeeRepository;
+  }
+  ```
+
+---
+
+#### 7. **@Slf4j**
+- **Purpose:** Generates a `Logger` field for logging.
+- **Example:**
+  ```java
+  @Slf4j
+  public class EmployeeService {
+      public void logMessage() {
+          log.info("Logging with Lombok!");
+      }
+  }
+  ```
+
+---
+
+#### 8. **@Value**
+- **Purpose:** Creates immutable classes.
+- **Features:**
+  - All fields are `private final`.
+  - Generates only getters, `equals`, `hashCode`, and `toString`.
+- **Example:**
+  ```java
+  @Value
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+
+---
+
+#### 9. **@Builder**
+- **Purpose:** Generates a builder pattern for the class.
+- **Example:**
+  ```java
+  @Builder
+  public class Employee {
+      private Long id;
+      private String name;
+  }
+  ```
+- **Usage:**
+  ```java
+  Employee employee = Employee.builder()
+                              .id(1L)
+                              .name("John Doe")
+                              .build();
+  ```
+
+---
+
+### Lombok's Internal Working
+
+- **Compile-Time Transformation:**
+  - Lombok uses **JSR-269** (Java Specification Request) to hook into the Java compiler.
+  - It manipulates the **Abstract Syntax Tree (AST)** to inject the generated methods.
+- **Result:**
+  - The final compiled bytecode contains all the generated methods.
+  - The source code remains concise, but the compiled code is standard Java.
+
+---
+
+### Summary of Annotations
+
+| Annotation         | Purpose                                      |
+|--------------------|----------------------------------------------|
+| `@Getter`          | Generates getter methods.                   |
+| `@Setter`          | Generates setter methods.                   |
+| `@NoArgsConstructor` | Generates a no-argument constructor.       |
+| `@AllArgsConstructor` | Generates a constructor with all fields.  |
+| `@EqualsAndHashCode` | Generates `equals()` and `hashCode()`.     |
+| `@ToString`        | Generates a `toString()` method.            |
+| `@Data`            | Combines `@Getter`, `@Setter`, etc.         |
+| `@Slf4j`           | Generates a `Logger` field.                 |
+| `@Value`           | Creates immutable classes.                  |
+| `@Builder`         | Generates a builder pattern.                |
+
+---
+
+### Next Steps
+
+- **Part 2 Preview:**
+  - Explore Lombok's internal workings in detail.
+  - Learn about JSR-269, AST manipulation, and Lombok's pros and cons.
+
+---
+
+
+---
+
+## Inside Lombok: Compiler Internals, Pros & Cons
+
+Project Lombok is a Java library that reduces boilerplate code by generating common methods like getters, setters, constructors, and more at compile time. This section explains how Lombok works internally and discusses its advantages and disadvantages.
+
+---
+
+### How Lombok Works Internally
+
+1. **Java to Bytecode Compilation:**
+   - Java code is compiled into bytecode, which runs on the JVM.
+   - The compiler uses an **Abstract Syntax Tree (AST)** to represent the code in memory during compilation.
+
+2. **Abstract Syntax Tree (AST):**
+   - The AST is an in-memory representation of the code that the compiler uses to analyze and convert it into bytecode.
+
+3. **JSR-269 Annotation Processor:**
+   - Java's **JSR-269** allows for annotation processing during compilation.
+   - It enables the compiler to read annotations and generate or modify code internally.
+
+4. **Lombok's Role:**
+   - Lombok "hijacks" the AST and JSR-269 during compilation.
+   - It reads Lombok annotations (e.g., `@Getter`, `@Setter`) and programmatically modifies the AST.
+   - These annotations are replaced with actual methods (e.g., `getName()`).
+   - The modified AST is then converted into bytecode by the compiler, resulting in `.class` files with the generated code.
+
+**Key Insight:**
+- Lombok operates entirely at compile time, meaning no Lombok classes or annotations exist in the final bytecode.
+
+---
+
+### Pros of Lombok
+
+1. **Massive Boilerplate Reduction:**
+   - Eliminates repetitive code for getters, setters, constructors, builders, and loggers.
+   - Makes classes cleaner and easier to read.
+
+2. **Faster Development and Cleaner Code:**
+   - Reduces repetitive typing, speeding up feature delivery.
+   - Allows developers to focus on business logic.
+   - Particularly useful in Spring Boot, microservices, and CRUD-heavy systems.
+
+3. **Zero Runtime Overhead:**
+   - Lombok operates at compile time, so no Lombok classes run in production.
+   - The generated bytecode is identical to handwritten code, ensuring no performance impact.
+
+4. **Encourages Best Practices:**
+   - Promotes practices like constructor injection and immutable objects.
+
+5. **Mature and Widely Used:**
+   - A stable library with a large community and widespread adoption in production systems.
+
+---
+
+### Cons of Lombok
+
+1. **Hidden Code:**
+   - Generated methods are not visible in the source code, which can make debugging difficult.
+   - This can be challenging for new developers unfamiliar with Lombok.
+
+2. **IDE Plugin Dependency:**
+   - Requires IDE plugins for proper support.
+   - Some IDEs may show red errors on generated methods, causing confusion.
+
+3. **Compiler Internal Dependency:**
+   - Relies on non-public Java compiler APIs and modifies the in-memory AST directly.
+   - Vulnerable to breaking when new Java versions are released, as changes in Java's internal APIs can cause Lombok to fail.
+   - Teams may need to wait for Lombok updates, which is why some enterprises avoid using it.
+
+4. **Heavy at Compile-Time:**
+   - Lombok is not heavy at runtime but adds complexity at compile time due to its reliance on Java's internal APIs.
+
+---
+
+### Java Records: A Potential Alternative
+
+- **Java Records:** Introduced in Java 14, records are a built-in feature that can replace Lombok's `@Value` annotation.
+- **Comparison:** Records provide immutability and concise syntax without relying on external libraries like Lombok.
+
+---
+
+### Summary
+
+- **How Lombok Works:** Modifies the AST at compile time using JSR-269, replacing annotations with generated methods.
+- **Advantages:** Reduces boilerplate, improves development speed, and has no runtime overhead.
+- **Disadvantages:** Hidden code, IDE dependency, and reliance on non-public Java APIs.
+- **Future Consideration:** Java Records may serve as a lightweight alternative to some Lombok features.
+
+Lombok remains a powerful tool for reducing boilerplate code, but teams should weigh its compile-time complexity and maintenance challenges against its benefits.
+
+---
+
+
+---
+
+## Lombok vs. Java Records: A Practical Comparison
+
+This guide compares **Lombok** and **Java Records**, highlighting their differences in design intent, mutability, thread safety, debugging, and use cases in Spring Boot.
+
+---
+
+### Core Problem: Reducing Boilerplate Code
+
+Both Lombok and Records aim to reduce boilerplate code in Java by automating the generation of common methods like `getters`, `setters`, `equals()`, `hashCode()`, and `toString()`.
+
+---
+
+### Lombok Recap
+
+1. **What is Lombok?**
+   - An **external Java library** that generates boilerplate code at compile time.
+   - Uses annotations like `@Getter`, `@Setter`, `@Data`, `@Builder`, `@NoArgsConstructor`, `@AllArgsConstructor`, and `@Value`.
+
+2. **Key Features:**
+   - **Mutable by Default:** Lombok-generated classes are mutable, meaning their state can be changed after creation.
+   - **Optional Immutability:** Use `@Value` to create immutable classes.
+   - **Framework Compatibility:** Works seamlessly with frameworks like JPA/Hibernate, which require mutability.
+
+3. **Example:**
+   ```java
+   @Data
+   @NoArgsConstructor
+   @AllArgsConstructor
+   public class Employee {
+       private Long id;
+       private String name;
+   }
+   ```
+
+---
+
+### Java Records Introduction
+
+1. **What are Records?**
+   - A **language-level feature** introduced in **Java 16**.
+   - Designed for **immutable data carriers** (e.g., DTOs, API responses).
+
+2. **Key Features:**
+   - **Immutable by Design:** Records do not allow setters, ensuring their state cannot be changed after creation.
+   - **Automatic Method Generation:** Provides a canonical constructor, accessor methods (e.g., `id()` instead of `getId()`), `equals()`, `hashCode()`, and `toString()`.
+
+3. **Example:**
+   ```java
+   public record Employee(Long id, String name) {}
+   ```
+
+---
+
+### Mutability: The Biggest Difference
+
+1. **Lombok (Mutable by Default):**
+   - Allows state changes after object creation.
+   - Suitable for use cases like JPA entities, where mutability is required.
+
+2. **Records (Immutable by Design):**
+   - Thread-safe because their state cannot be altered.
+   - Ideal for data carriers where immutability ensures consistency.
+
+---
+
+### When to Use What
+
+#### Use **Records** When:
+- Data is **immutable** and you need simple data carriers (e.g., DTOs, API responses, projections).
+- You want **clarity** and **thread safety**.
+- The class is purely about **holding data**, not behavior.
+
+#### Use **Lombok** When:
+- You need to clean up boilerplate code for **JPA entities** or other scenarios requiring **mutability**.
+- You need **builder patterns** or **custom behaviors** not supported by Records.
+
+---
+
+### Bookish Comparison: Lombok vs. Records
+
+| Feature                  | Lombok                              | Records                              |
+|--------------------------|-------------------------------------|--------------------------------------|
+| **Core Purpose**         | Reduces boilerplate                | Immutable data carriers              |
+| **Nature**               | External library                   | Language-level feature               |
+| **Introduction**         | Java 8+                            | Java 16                              |
+| **Mutability**           | Mutable by default (optional immutability) | Immutable by design                 |
+| **Setters**              | Generates setters                  | Not allowed                          |
+| **Code Generation**      | Compile-time manipulation          | Handled by Java compiler             |
+| **Debugging**            | Can be difficult                   | Easier due to immutability           |
+| **Thread Safety**        | Developer responsibility           | Naturally thread-safe                |
+| **Framework Compatibility** | Highly compatible with JPA/ORM  | Limited compatibility in some cases  |
+| **Features**             | Supports builder patterns, custom behaviors | Limited support                      |
+| **Maintenance**          | Requires version maintenance       | No maintenance required              |
+
+---
+
+### Summary
+
+- **Lombok:** Best for mutable classes, especially in frameworks like JPA.
+- **Records:** Ideal for immutable data carriers, ensuring thread safety and simplicity.
+
+Both tools have their strengths, and the choice depends on your application's requirements.
+
+---
+
+
+---
+
+## @Service vs. @Component in Spring Boot: When to Use Which?
+
+The video **"Unraveling Spring Boot's @Service vs. @Component: When to use which?"** explains the roles of `@Service` and `@Component` annotations in Spring Boot, emphasizing their technical similarities and semantic differences.
+
+---
+
+### Key Points
+
+#### **1. @Component Annotation**
+- **Purpose:** A generic stereotype annotation that marks a Java class as a Spring-managed component.
+- **How It Works:**
+  - When a class is annotated with `@Component`, Spring's **component scanning mechanism** (enabled by `@SpringBootApplication`) identifies it and registers it as a bean in the Spring application context.
+  - Essentially, it tells Spring to manage the lifecycle of that class as a bean.
+- **Use Case:** Suitable for utility classes or components that don’t fit into more specific stereotype annotations like `@Service`, `@Repository`, or `@Controller`.
+
+**Example:**
+```java
+@Component
+public class EmailValidator {
+    public boolean isValid(String email) {
+        return email.contains("@");
+    }
+}
+```
+
+---
+
+#### **2. @Service Annotation**
+- **Purpose:** A specialization of `@Component` that adds **semantic meaning** to indicate the class contains **business logic**.
+- **How It Works:**
+  - Internally, `@Service` is itself annotated with `@Component`, meaning it is also registered as a Spring bean.
+  - At runtime, it behaves the same as `@Component`.
+- **Use Case:** Typically used for classes that encapsulate **service-layer operations** or **business logic**.
+
+**Example:**
+```java
+@Service
+public class UserService {
+    public void registerUser(String username) {
+        System.out.println("Registering user: " + username);
+    }
+}
+```
+
+---
+
+#### **3. Are They the Same?**
+- **Technically:** Yes, both `@Service` and `@Component` register a class as a Spring bean, and there is no functional difference at runtime.
+- **Semantically:** No, `@Service` adds clarity by explicitly marking a class as part of the **business layer**.
+
+---
+
+### **Layered Architecture Best Practices**
+
+1. **Presentation Layer (REST APIs/Controllers):**
+   - Use `@Controller` or `@RestController` for handling HTTP requests and responses.
+
+2. **Business Logic Layer (Services):**
+   - Use `@Service` for classes containing core business logic.
+
+3. **Persistence Layer (Database Interactions):**
+   - Use `@Repository` for classes that interact with the database.
+
+4. **Other/Utility Classes:**
+   - Use `@Component` for general-purpose classes that don’t fit into the above layers.
+
+---
+
+### **Best Practices for Interviews**
+- When asked about the difference, explain that:
+  - Both annotations create Spring beans, but their **intent** and **usage** differ.
+  - `@Service` is used for **business logic**, while `@Component` is more general-purpose.
+- Highlight that using the correct annotation improves **code readability** and reflects the class's role in the application.
+
+---
+
+### Summary Table: @Service vs. @Component
+
+| Aspect                  | @Service                          | @Component                        |
+|-------------------------|------------------------------------|------------------------------------|
+| **Purpose**             | Indicates business logic          | General-purpose component          |
+| **Layer**               | Business Logic Layer              | Utility/Other                     |
+| **Semantic Meaning**    | Adds clarity for service classes  | No specific semantic meaning       |
+| **Runtime Behavior**    | Same as `@Component`              | Same as `@Service`                |
+
+---
+
+Using the correct annotation (`@Service`, `@Component`, `@Repository`, or `@Controller`) improves code readability, aligns with Spring's layered architecture best practices, and reflects the intent of each class in the application.
+
+---
 
 
 ---
